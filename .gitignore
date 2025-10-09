@@ -14,5 +14,8 @@ __pycache__/
 # 忽略输出目录
 output/
 
+# 忽略日志文件
+logs/
+
 uv.lock 
 
