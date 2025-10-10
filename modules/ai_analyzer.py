@@ -18,9 +18,10 @@ logging.basicConfig(level=logging.DEBUG, format='%(threadName)s: %(message)s')
 
 load_dotenv()
 
-API_KEY = os.getenv("API_KEY")
-BASE_URL = os.getenv("BASE_URL", "https://api.x.ai/v1")
-MODEL_NAME = os.getenv("MODEL_NAME", "grok-2-vision-1212")  # 默认模型名称
+# 使用带前缀的环境变量名
+API_KEY = os.getenv("AI_KLINE_API_KEY")
+BASE_URL = os.getenv("AI_KLINE_BASE_URL", "https://api.x.ai/v1")
+MODEL_NAME = os.getenv("AI_KLINE_MODEL_NAME", "grok-2-vision-1212")  # 默认模型名称
 
 class AIAnalyzer:
     """
@@ -37,8 +38,8 @@ class AIAnalyzer:
                 base_url=BASE_URL,
             )
         else:
-            print("警告: 未设置API_KEY环境变量，AI分析功能将无法使用")
-            print("请在.env文件中添加: API_KEY=your_api_key")
+            print("警告: 未设置 AI_KLINE_API_KEY 环境变量，AI分析功能将无法使用")
+            print("请在 .env 文件中添加: AI_KLINE_API_KEY=your_api_key")
     
     def analyze(self, stock_data, indicators, financial_data, news_data, stock_code, save_path):
         """
@@ -54,8 +55,8 @@ class AIAnalyzer:
         返回:
             str: 分析结果文本
         """
-        if not os.getenv("API_KEY"):
-            return "错误: 未设置API_KEY环境变量，无法使用AI分析功能。请在.env文件中添加API_KEY。"
+        if not os.getenv("AI_KLINE_API_KEY"):
+            return "错误: 未设置 AI_KLINE_API_KEY 环境变量，无法使用AI分析功能。请在 .env 文件中添加 AI_KLINE_API_KEY。"
         
         try:
             # 记录当前线程以调试

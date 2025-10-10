@@ -34,11 +34,11 @@ AI Stock Analysis is a Python-based A-share analysis tool that combines traditio
 pip install -r requirements.txt
 ```
 
-3. Create `.env` file and add API key:
+3. Create `.env` file and add keys (prefixed):
 ```
-API_KEY=your_api_key_here
-BASE_URL==https://dashscope.aliyuncs.com/compatible-mode/v1
-MODEL_NAME=qwen-vl-max
+AI_KLINE_API_KEY=your_api_key_here
+AI_KLINE_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+AI_KLINE_MODEL_NAME=qwen-vl-max
 ```
 
 > Note: You need to use multi-modal models
