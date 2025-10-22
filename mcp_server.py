@@ -13,7 +13,7 @@ from modules.visualizer import Visualizer
 from modules.ai_analyzer import AIAnalyzer
 
 # Initialize FastMCP server
-mcp = FastMCP("AI-Kline")
+mcp = FastMCP("AI-Kline", host=os.getenv("MCP_HOST", "0.0.0.0"), port=os.getenv("MCP_PORT", 8000))
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
