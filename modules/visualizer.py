@@ -53,17 +53,20 @@ class Visualizer:
         os.makedirs(chart_dir, exist_ok=True)
         
         # 使用matplotlib创建图表
-        self._create_matplotlib_charts(stock_data, indicators, stock_code, stock_name, chart_dir, frequency_display)
+        self._create_matplotlib_charts(stock_data, indicators, stock_code, stock_name, chart_dir, frequency)
         
         # 使用pyecharts创建交互式图表
         self._create_pyecharts_charts(stock_data, indicators, stock_code, stock_name, chart_dir, frequency_display)
         
         return chart_dir
     
-    def _create_matplotlib_charts(self, stock_data, indicators, stock_code, stock_name, save_path, frequency_display=""):
+    def _create_matplotlib_charts(self, stock_data, indicators, stock_code, stock_name, save_path, frequency="daily"):
         """
         使用matplotlib创建图表
         """
+        # 获取英文频率显示
+        frequency_display_en = self._get_frequency_display_en(frequency)
+        
         # 创建一个大图，包含多个子图
         fig = plt.figure(figsize=(16, 12))
         
@@ -72,7 +75,7 @@ class Visualizer:
         
         # 添加K线图和移动平均线
         ax1 = fig.add_subplot(gs[0])
-        ax1.set_title(f"{stock_name}({stock_code}) {frequency_display}K线图与技术指标")
+        ax1.set_title(f"{stock_code} {frequency_display_en}K-Line Chart & Technical Indicators")
         
         # 绘制K线图
         for i in range(len(stock_data)):
@@ -98,9 +101,9 @@ class Visualizer:
         ax1.plot(indicators['MA30'], label='MA30', linewidth=1)
         
         # 绘制布林带
-        ax1.plot(indicators['BOLL_upper'], label='BOLL上轨', linestyle='--', linewidth=1)
-        ax1.plot(indicators['BOLL_middle'], label='BOLL中轨', linestyle='-', linewidth=1)
-        ax1.plot(indicators['BOLL_lower'], label='BOLL下轨', linestyle='--', linewidth=1)
+        ax1.plot(indicators['BOLL_upper'], label='BOLL Upper', linestyle='--', linewidth=1)
+        ax1.plot(indicators['BOLL_middle'], label='BOLL Middle', linestyle='-', linewidth=1)
+        ax1.plot(indicators['BOLL_lower'], label='BOLL Lower', linestyle='--', linewidth=1)
         
         # 设置x轴刻度
         ax1.set_xticks(range(0, len(stock_data), len(stock_data) // 10))
@@ -110,7 +113,7 @@ class Visualizer:
         
         # 添加成交量图
         ax2 = fig.add_subplot(gs[1], sharex=ax1)
-        ax2.set_title("成交量")
+        ax2.set_title("Volume")
         for i in range(len(stock_data)):
             if stock_data['close'].iloc[i] >= stock_data['open'].iloc[i]:
                 color = 'red'
@@ -293,6 +296,20 @@ class Visualizer:
             '60min': '60分钟'
         }
         return frequency_map.get(frequency, '日线')
+    
+    def _get_frequency_display_en(self, frequency):
+        """获取频率的英文显示，专门用于matplotlib图表"""
+        frequency_map = {
+            'daily': 'Daily',
+            'weekly': 'Weekly', 
+            'monthly': 'Monthly',
+            '1min': '1min',
+            '5min': '5min',
+            '15min': '15min',
+            '30min': '30min',
+            '60min': '60min'
+        }
+        return frequency_map.get(frequency, 'Daily')
     
     def _create_kline_with_ma(self, dates, k_data, indicators, stock_name, stock_code, frequency_display=""):
         """创建带MA线的K线图"""
