@@ -5,6 +5,9 @@ from modules.data_fetcher import StockDataFetcher
 from modules.technical_analyzer import TechnicalAnalyzer
 from modules.visualizer import Visualizer
 from modules.ai_analyzer import AIAnalyzer
+from modules.chan_analyzer import ChanAnalyzer
+from modules.chan_analysis_engine import ChanAnalysisEngine
+from modules.chan_visualizer import ChanVisualizer
 from dotenv import load_dotenv
 import matplotlib
 # 设置 matplotlib 使用非 GUI 后端以避免 tkinter 依赖
@@ -24,6 +27,9 @@ data_fetcher = StockDataFetcher()
 technical_analyzer = TechnicalAnalyzer()
 visualizer = Visualizer()
 ai_analyzer = AIAnalyzer()
+chan_analyzer = ChanAnalyzer()
+chan_analysis_engine = ChanAnalysisEngine()
+chan_visualizer = ChanVisualizer()
 
 @app.route('/')
 def index():
@@ -104,6 +110,85 @@ def get_stock_info(stock_code):
             return jsonify({'error': f'未找到股票 {stock_code} 的信息'}), 404
     except Exception as e:
         return jsonify({'error': f'获取股票信息时出错: {str(e)}'}), 500
+
+@app.route('/chan_analyze', methods=['POST'])
+def chan_analyze():
+    """缠论分析"""
+    data = request.form
+    stock_code = data.get('stock_code')
+    period = data.get('period', '1年')
+    
+    if not stock_code:
+        return jsonify({'error': '请输入股票代码'}), 400
+    
+    try:
+        # 获取股票数据
+        stock_data = data_fetcher.fetch_stock_data(stock_code, period)
+        
+        if stock_data.empty:
+            return jsonify({'error': f'未找到股票 {stock_code} 的数据'}), 404
+        
+        # 执行缠论分析
+        chan_analysis = chan_analysis_engine.advanced_chan_analysis(stock_data)
+        
+        # 生成缠论分析图表
+        chart_path = chan_visualizer.create_comprehensive_chan_chart(
+            stock_data, chan_analysis, 
+            f'./output/charts/{stock_code}_chan_analysis.png'
+        )
+        
+        # 生成分析报告
+        chan_report = chan_visualizer.create_chan_analysis_report(chan_analysis, stock_code)
+        
+        return jsonify({
+            'success': True,
+            'chart_path': chart_path,
+            'analysis_report': chan_report,
+            'analysis_data': {
+                'pen_count': chan_analysis.get('basic_analysis', {}).get('pen_data', []).__len__(),
+                'segment_count': chan_analysis.get('basic_analysis', {}).get('segment_data', []).__len__(),
+                'zhongshu_count': chan_analysis.get('basic_analysis', {}).get('zhongshu_data', []).__len__(),
+                'overall_score': chan_analysis.get('overall_score', {}).get('overall_score', 0),
+                'investment_advice': chan_analysis.get('investment_advice', {})
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'缠论分析时出错: {str(e)}'}), 500
+
+@app.route('/chan_chart', methods=['POST'])
+def chan_chart():
+    """生成缠论分析图表"""
+    data = request.form
+    stock_code = data.get('stock_code')
+    period = data.get('period', '1年')
+    
+    if not stock_code:
+        return jsonify({'error': '请输入股票代码'}), 400
+    
+    try:
+        # 获取股票数据
+        stock_data = data_fetcher.fetch_stock_data(stock_code, period)
+        
+        if stock_data.empty:
+            return jsonify({'error': f'未找到股票 {stock_code} 的数据'}), 404
+        
+        # 执行缠论分析
+        chan_analysis = chan_analysis_engine.advanced_chan_analysis(stock_data)
+        
+        # 生成缠论分析图表
+        chart_path = chan_visualizer.create_comprehensive_chan_chart(
+            stock_data, chan_analysis, 
+            f'./output/charts/{stock_code}_chan_analysis.png'
+        )
+        
+        return jsonify({
+            'success': True,
+            'chart_path': chart_path
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'生成缠论图表时出错: {str(e)}'}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=9000, threaded=False)  # 禁用多线程

@@ -43,6 +43,11 @@
                                 </div>
                                 <button type="submit" class="btn btn-primary w-100">开始分析</button>
                             </form>
+                            
+                            <!-- 缠论分析按钮 -->
+                            <div class="mt-3">
+                                <button type="button" class="btn btn-success w-100" id="chanAnalyzeBtn">缠论分析</button>
+                            </div>
                         </div>
                     </div>
 
@@ -86,6 +91,28 @@
                         </div>
                         <div class="card-body">
                             <div id="analysisText" class="analysis-content p-3 bg-light rounded"></div>
+                        </div>
+                    </div>
+
+                    <!-- 缠论分析结果 -->
+                    <div id="chanAnalysisResult" class="card mb-4 d-none">
+                        <div class="card-header bg-success text-white">
+                            <h5 class="mb-0">缠论分析结果</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="chanAnalysisText" class="analysis-content p-3 bg-light rounded"></div>
+                        </div>
+                    </div>
+
+                    <!-- 缠论分析图表 -->
+                    <div id="chanChartArea" class="d-none">
+                        <div class="card mb-4">
+                            <div class="card-header bg-info text-white">
+                                <h5 class="mb-0">缠论分析图表</h5>
+                            </div>
+                            <div class="card-body" id="chanChartImages">
+                                <!-- 缠论图表将通过JavaScript动态填充 -->
+                            </div>
                         </div>
                     </div>
                 </div>

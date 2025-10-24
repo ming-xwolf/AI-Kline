@@ -11,6 +11,9 @@ from modules.data_fetcher import StockDataFetcher
 from modules.technical_analyzer import TechnicalAnalyzer
 from modules.visualizer import Visualizer
 from modules.ai_analyzer import AIAnalyzer
+from modules.chan_analyzer import ChanAnalyzer
+from modules.chan_analysis_engine import ChanAnalysisEngine
+from modules.chan_visualizer import ChanVisualizer
 
 # Initialize FastMCP server
 mcp = FastMCP("AI-Kline", host=os.getenv("MCP_HOST", "0.0.0.0"), port=os.getenv("MCP_PORT", 8000))
@@ -176,6 +179,93 @@ def pattern_run(symbol: str, period: str = '1年', save_path: str = './output', 
     analysis_result = ai_analyzer.analyze(stock_data, indicators, financial_data, news_data, symbol, save_path)
 
     return analysis_result 
+
+@mcp.tool()
+async def chan_analysis(symbol: str, period: str = '1年', frequency: str = 'daily') -> str:
+    """
+    执行缠论分析
+    Args:
+        symbol: A股股票代码 (例如: 000001, 600001, 300001)
+        period: 分析周期 (1年, 6个月, 3个月, 1个月, 1周)
+        frequency: 数据频率 (daily-日线, weekly-周线, monthly-月线)
+    """
+    try:
+        analysis_result = await run_in_threadpool(chan_analysis_run, symbol=symbol, period=period, frequency=frequency)
+        return analysis_result
+    except Exception as e:
+        logger.error(f"Error in chan analysis: {e}")
+        return f"缠论分析失败: {str(e)}"
+
+def chan_analysis_run(symbol: str, period: str = '1年', frequency: str = 'daily') -> str:
+    """执行缠论分析的核心函数"""
+    try:
+        # 初始化缠论分析模块
+        data_fetcher = StockDataFetcher()
+        chan_analysis_engine = ChanAnalysisEngine()
+        chan_visualizer = ChanVisualizer()
+        
+        # 获取股票数据
+        stock_data = data_fetcher.fetch_stock_data(symbol, period, frequency)
+        if stock_data.empty:
+            return f"无法获取股票 {symbol} 的数据"
+        
+        # 执行缠论分析
+        chan_analysis = chan_analysis_engine.advanced_chan_analysis(stock_data)
+        
+        # 生成分析报告
+        chan_report = chan_visualizer.create_chan_analysis_report(chan_analysis, symbol)
+        
+        return chan_report
+        
+    except Exception as e:
+        return f"缠论分析过程中出错: {str(e)}"
+
+@mcp.tool()
+async def chan_chart(symbol: str, period: str = '1年', frequency: str = 'daily') -> str:
+    """
+    生成缠论分析图表
+    Args:
+        symbol: A股股票代码 (例如: 000001, 600001, 300001)
+        period: 分析周期 (1年, 6个月, 3个月, 1个月, 1周)
+        frequency: 数据频率 (daily-日线, weekly-周线, monthly-月线)
+    """
+    try:
+        chart_path = await run_in_threadpool(chan_chart_run, symbol=symbol, period=period, frequency=frequency)
+        return f"缠论分析图表已生成: {chart_path}"
+    except Exception as e:
+        logger.error(f"Error generating chan chart: {e}")
+        return f"生成缠论图表失败: {str(e)}"
+
+def chan_chart_run(symbol: str, period: str = '1年', frequency: str = 'daily') -> str:
+    """生成缠论分析图表的核心函数"""
+    try:
+        # 初始化模块
+        data_fetcher = StockDataFetcher()
+        chan_analysis_engine = ChanAnalysisEngine()
+        chan_visualizer = ChanVisualizer()
+        
+        # 获取股票数据
+        stock_data = data_fetcher.fetch_stock_data(symbol, period, frequency)
+        if stock_data.empty:
+            return f"无法获取股票 {symbol} 的数据"
+        
+        # 执行缠论分析
+        chan_analysis = chan_analysis_engine.advanced_chan_analysis(stock_data)
+        
+        # 确保输出目录存在
+        output_dir = f"./output/charts"
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # 生成缠论分析图表
+        chart_path = chan_visualizer.create_comprehensive_chan_chart(
+            stock_data, chan_analysis, 
+            os.path.join(output_dir, f"{symbol}_chan_analysis.png")
+        )
+        
+        return chart_path
+        
+    except Exception as e:
+        return f"生成缠论图表过程中出错: {str(e)}"
 
 if __name__ == "__main__":
     # mcp.run(transport='stdio')

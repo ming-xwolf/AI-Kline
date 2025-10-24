@@ -9,6 +9,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const analysisText = document.getElementById('analysisText');
     const stockInfoCard = document.getElementById('stockInfoCard');
     const stockInfoBody = document.getElementById('stockInfoBody');
+    const chanAnalyzeBtn = document.getElementById('chanAnalyzeBtn');
+    const chanAnalysisResult = document.getElementById('chanAnalysisResult');
+    const chanAnalysisText = document.getElementById('chanAnalysisText');
+    const chanChartArea = document.getElementById('chanChartArea');
+    const chanChartImages = document.getElementById('chanChartImages');
     
     // 处理表单提交
     analyzeForm.addEventListener('submit', function(e) {
@@ -298,5 +303,113 @@ document.addEventListener('DOMContentLoaded', function() {
             '<span class="text-danger fw-bold">$1：</span>');
         
         return html;
+    }
+
+    // 缠论分析按钮事件处理
+    chanAnalyzeBtn.addEventListener('click', function() {
+        const stockCode = stockCodeInput.value.trim();
+        if (!stockCode) {
+            alert('请先输入股票代码');
+            return;
+        }
+        
+        // 显示加载指示器，隐藏缠论分析结果区域
+        loadingIndicator.classList.remove('d-none');
+        chanAnalysisResult.classList.add('d-none');
+        chanChartArea.classList.add('d-none');
+        
+        // 获取分析周期
+        const period = document.getElementById('period').value;
+        
+        // 发送缠论分析请求
+        const formData = new FormData();
+        formData.append('stock_code', stockCode);
+        formData.append('period', period);
+        
+        axios.post('/chan_analyze', formData)
+            .then(response => {
+                // 隐藏加载指示器
+                loadingIndicator.classList.add('d-none');
+                
+                if (response.data.success) {
+                    // 显示缠论分析结果
+                    displayChanAnalysisResult(response.data.analysis_report, response.data.analysis_data);
+                    
+                    // 显示缠论分析图表
+                    displayChanCharts(response.data.chart_path, stockCode);
+                } else {
+                    alert('缠论分析失败: ' + (response.data.error || '未知错误'));
+                }
+            })
+            .catch(error => {
+                loadingIndicator.classList.add('d-none');
+                console.error('缠论分析错误:', error);
+                alert('缠论分析过程中出错: ' + (error.response?.data?.error || error.message));
+            });
+    });
+    
+    // 显示缠论分析结果
+    function displayChanAnalysisResult(analysisReport, analysisData) {
+        chanAnalysisText.innerHTML = convertMarkdownToHTML(analysisReport);
+        chanAnalysisResult.classList.remove('d-none');
+        
+        // 添加分析数据摘要
+        if (analysisData) {
+            const summaryHtml = `
+                <div class="row mb-3">
+                    <div class="col-md-3">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <h6 class="card-title">笔数量</h6>
+                                <h4 class="text-primary">${analysisData.pen_count || 0}</h4>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <h6 class="card-title">线段数量</h6>
+                                <h4 class="text-success">${analysisData.segment_count || 0}</h4>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <h6 class="card-title">中枢数量</h6>
+                                <h4 class="text-info">${analysisData.zhongshu_count || 0}</h4>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <h6 class="card-title">综合评分</h6>
+                                <h4 class="text-warning">${(analysisData.overall_score * 100).toFixed(1)}%</h4>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            chanAnalysisText.innerHTML = summaryHtml + chanAnalysisText.innerHTML;
+        }
+    }
+    
+    // 显示缠论分析图表
+    function displayChanCharts(chartPath, stockCode) {
+        if (chartPath) {
+            const chartHtml = `
+                <div class="text-center">
+                    <h6 class="mb-3">缠论分析图表</h6>
+                    <img src="/output/charts/${stockCode}_chan_analysis.png" 
+                         class="img-fluid rounded shadow" 
+                         alt="缠论分析图表"
+                         style="max-width: 100%; height: auto;">
+                    <p class="text-muted mt-2">点击图片可查看大图</p>
+                </div>
+            `;
+            chanChartImages.innerHTML = chartHtml;
+            chanChartArea.classList.remove('d-none');
+        }
     }
 }); 

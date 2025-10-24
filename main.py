@@ -6,6 +6,9 @@ from modules.data_fetcher import StockDataFetcher
 from modules.technical_analyzer import TechnicalAnalyzer
 from modules.visualizer import Visualizer
 from modules.ai_analyzer import AIAnalyzer
+from modules.chan_analyzer import ChanAnalyzer
+from modules.chan_analysis_engine import ChanAnalysisEngine
+from modules.chan_visualizer import ChanVisualizer
 
 # 加载环境变量
 load_dotenv()
@@ -26,6 +29,9 @@ def main():
     technical_analyzer = TechnicalAnalyzer()
     visualizer = Visualizer()
     ai_analyzer = AIAnalyzer()
+    chan_analyzer = ChanAnalyzer()
+    chan_analysis_engine = ChanAnalysisEngine()
+    chan_visualizer = ChanVisualizer()
     
     # 获取股票数据
     print(f"正在获取 {args.stock_code} 的历史数据...")
@@ -40,22 +46,44 @@ def main():
     print("正在计算技术指标...")
     indicators = technical_analyzer.calculate_indicators(stock_data)
     
+    # 缠论分析
+    print("正在执行缠论分析...")
+    chan_analysis = chan_analysis_engine.advanced_chan_analysis(stock_data)
+    
     # 生成可视化图表
     print("正在生成K线图和技术指标图...")
     chart_path = visualizer.create_charts(stock_data, indicators, args.stock_code, args.save_path)
+    
+    # 生成缠论分析图表
+    print("正在生成缠论分析图表...")
+    chan_chart_path = chan_visualizer.create_comprehensive_chan_chart(
+        stock_data, chan_analysis, 
+        os.path.join(args.save_path, f"charts/{args.stock_code}_chan_analysis.png")
+    )
     
     # AI分析预测
     print("正在使用AI分析预测未来走势...")
     analysis_result = ai_analyzer.analyze(stock_data, indicators, financial_data, news_data, args.stock_code, args.save_path)
     
+    # 生成缠论分析报告
+    print("正在生成缠论分析报告...")
+    chan_report = chan_visualizer.create_chan_analysis_report(chan_analysis, args.stock_code)
+    
     # 保存分析结果
     result_path = os.path.join(args.save_path, f"{args.stock_code}_analysis_result.txt")
+    chan_result_path = os.path.join(args.save_path, f"{args.stock_code}_chan_analysis_result.txt")
+    
     with open(result_path, 'w', encoding='utf-8') as f:
         f.write(analysis_result)
     
+    with open(chan_result_path, 'w', encoding='utf-8') as f:
+        f.write(chan_report)
+    
     print(f"\n分析完成！")
     print(f"K线图和技术指标图已保存至: {chart_path}")
+    print(f"缠论分析图表已保存至: {chan_chart_path}")
     print(f"AI分析结果已保存至: {result_path}")
+    print(f"缠论分析报告已保存至: {chan_result_path}")
 
 if __name__ == "__main__":
     main()
