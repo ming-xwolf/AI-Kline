@@ -17,7 +17,7 @@ class Visualizer:
         plt.rcParams['font.sans-serif'] = ['SimHei']  # 用来正常显示中文标签
         plt.rcParams['axes.unicode_minus'] = False  # 用来正常显示负号
     
-    def create_charts(self, stock_data, indicators, stock_code, save_path):
+    def create_charts(self, stock_data, indicators, stock_code, save_path, frequency="daily"):
         """
         创建K线图和技术指标图表
         
@@ -26,6 +26,7 @@ class Visualizer:
             indicators (dict): 技术指标数据
             stock_code (str): 股票代码
             save_path (str): 保存路径
+            frequency (str): 数据频率，用于显示在标题中
             
         返回:
             str: 图表保存路径
@@ -44,19 +45,22 @@ class Visualizer:
         except:
             stock_name = stock_code
         
+        # 获取频率的中文显示
+        frequency_display = self._get_frequency_display(frequency)
+        
         # 创建保存目录
         chart_dir = os.path.join(save_path, 'charts')
         os.makedirs(chart_dir, exist_ok=True)
         
         # 使用matplotlib创建图表
-        self._create_matplotlib_charts(stock_data, indicators, stock_code, stock_name, chart_dir)
+        self._create_matplotlib_charts(stock_data, indicators, stock_code, stock_name, chart_dir, frequency_display)
         
         # 使用pyecharts创建交互式图表
-        self._create_pyecharts_charts(stock_data, indicators, stock_code, stock_name, chart_dir)
+        self._create_pyecharts_charts(stock_data, indicators, stock_code, stock_name, chart_dir, frequency_display)
         
         return chart_dir
     
-    def _create_matplotlib_charts(self, stock_data, indicators, stock_code, stock_name, save_path):
+    def _create_matplotlib_charts(self, stock_data, indicators, stock_code, stock_name, save_path, frequency_display=""):
         """
         使用matplotlib创建图表
         """
@@ -68,7 +72,7 @@ class Visualizer:
         
         # 添加K线图和移动平均线
         ax1 = fig.add_subplot(gs[0])
-        ax1.set_title(f"{stock_name}({stock_code}) K线图与技术指标")
+        ax1.set_title(f"{stock_name}({stock_code}) {frequency_display}K线图与技术指标")
         
         # 绘制K线图
         for i in range(len(stock_data)):
@@ -155,7 +159,7 @@ class Visualizer:
         plt.savefig(os.path.join(save_path, f"{stock_code}_technical_analysis.png"), dpi=300)
         plt.close()
     
-    def _create_pyecharts_charts(self, stock_data, indicators, stock_code, stock_name, save_path):
+    def _create_pyecharts_charts(self, stock_data, indicators, stock_code, stock_name, save_path, frequency_display=""):
         """
         使用pyecharts创建交互式图表
         """
@@ -163,7 +167,7 @@ class Visualizer:
         dates, k_data = self._prepare_chart_data(stock_data)
         
         # 创建K线图和MA线
-        overlap_kline = self._create_kline_with_ma(dates, k_data, indicators, stock_name, stock_code)
+        overlap_kline = self._create_kline_with_ma(dates, k_data, indicators, stock_name, stock_code, frequency_display)
         
         # 创建成交量图
         volume_bar = self._create_volume_chart(dates, stock_data)
@@ -172,7 +176,7 @@ class Visualizer:
         grid = Grid(init_opts=opts.InitOpts(
             width="100%",
             height="700px",
-            page_title=f"AI看线 - {stock_name}({stock_code}) 技术分析"
+            page_title=f"AI看线 - {stock_name}({stock_code}) {frequency_display}技术分析"
         ))
         
         # 添加图表到网格
@@ -197,7 +201,7 @@ class Visualizer:
         # 优化HTML文件
         self._optimize_html_file(html_path)
     
-    def create_echarts_html(self, stock_data, indicators, stock_code, requested_indicators, save_path="./output"):
+    def create_echarts_html(self, stock_data, indicators, stock_code, requested_indicators, save_path="./output", frequency="daily"):
         """
         创建包含指定技术指标的ECharts HTML
         
@@ -207,6 +211,7 @@ class Visualizer:
             stock_code (str): 股票代码
             requested_indicators (list): 用户请求的技术指标列表
             save_path (str): 保存路径，默认为"./output"
+            frequency (str): 数据频率，用于显示在标题中
             
         返回:
             str: HTML内容
@@ -216,6 +221,9 @@ class Visualizer:
         
         # 获取股票名称
         stock_name = self._get_stock_name(stock_code)
+        
+        # 获取频率的中文显示
+        frequency_display = self._get_frequency_display(frequency)
         
         # 准备基础数据
         dates, k_data = self._prepare_chart_data(stock_data)
@@ -234,7 +242,7 @@ class Visualizer:
         grid = Grid(init_opts=opts.InitOpts(
             width="100%",
             height=f"{dynamic_height}px",
-            page_title=f"AI看线 - {stock_name}({stock_code}) 技术分析"
+            page_title=f"AI看线 - {stock_name}({stock_code}) {frequency_display}技术分析"
         ))
         
         # 计算子图高度和添加图表
@@ -244,7 +252,7 @@ class Visualizer:
         html_content = grid.render_embed()
         
         # 创建完整的HTML文档
-        full_html = self._create_full_html(stock_name, stock_code, dates, html_content, requested_indicators)
+        full_html = self._create_full_html(stock_name, stock_code, dates, html_content, requested_indicators, frequency_display)
         
         # 保存HTML文件到指定路径
         self._save_html_file(full_html, stock_code, requested_indicators, save_path)
@@ -272,7 +280,21 @@ class Visualizer:
         except:
             return stock_code
     
-    def _create_kline_with_ma(self, dates, k_data, indicators, stock_name, stock_code):
+    def _get_frequency_display(self, frequency):
+        """获取频率的中文显示"""
+        frequency_map = {
+            'daily': '日线',
+            'weekly': '周线', 
+            'monthly': '月线',
+            '1min': '1分钟',
+            '5min': '5分钟',
+            '15min': '15分钟',
+            '30min': '30分钟',
+            '60min': '60分钟'
+        }
+        return frequency_map.get(frequency, '日线')
+    
+    def _create_kline_with_ma(self, dates, k_data, indicators, stock_name, stock_code, frequency_display=""):
         """创建带MA线的K线图"""
         # 创建K线图
         kline = Kline()
@@ -291,7 +313,7 @@ class Visualizer:
         # K线图设置
         kline.set_global_opts(
             title_opts=opts.TitleOpts(
-                title=f"{stock_name}({stock_code}) K线图与成交量分析", 
+                title=f"{stock_name}({stock_code}) {frequency_display}K线图与成交量分析", 
                 pos_left="center",
                 padding=[10, 0, 0, 0],
                 pos_top="1%"
@@ -709,7 +731,7 @@ class Visualizer:
         
         return bias_line
     
-    def _create_full_html(self, stock_name, stock_code, dates, html_content, requested_indicators):
+    def _create_full_html(self, stock_name, stock_code, dates, html_content, requested_indicators, frequency_display=""):
         """创建完整的HTML文档"""
         # 计算动态高度
         base_height = 500  # 增加基础高度，确保X轴完全显示
@@ -723,7 +745,7 @@ class Visualizer:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI看线 - {stock_name}({stock_code}) 技术分析</title>
+    <title>AI看线 - {stock_name}({stock_code}) {frequency_display}技术分析</title>
     <style>
         body {{ 
             margin: 0; 
@@ -781,7 +803,7 @@ class Visualizer:
 <body>
     <div class="container">
         <div class="header">
-            <div class="title">{stock_name}({stock_code}) 技术分析图表</div>
+            <div class="title">{stock_name}({stock_code}) {frequency_display}技术分析图表</div>
             <div class="subtitle">数据时间范围: {dates[0]} 至 {dates[-1]} | 生成时间: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}</div>
         </div>
         <div class="chart-container">

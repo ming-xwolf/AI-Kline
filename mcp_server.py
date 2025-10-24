@@ -23,32 +23,35 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 @mcp.tool()
-async def ashare_analysis(symbol: str
+async def ashare_analysis(symbol: str, period: str = '1年', frequency: str = 'daily'
                                    ) -> str:
     """
     分析股票
     Args:
         symbol: A股股票代码或者指数代码 (股票代码： 000001, 600001, 300001)
+        period: 分析周期 (1年, 6个月, 3个月, 1个月, 1周)
+        frequency: 数据频率 (daily-日线, weekly-周线, monthly-月线, 1min-1分钟, 5min-5分钟, 15min-15分钟, 30min-30分钟, 60min-60分钟)
     """
     try:
-        analysis_result = await run_in_threadpool(pattern_run, symbol=symbol)
+        analysis_result = await run_in_threadpool(pattern_run, symbol=symbol, period=period, frequency=frequency)
         return analysis_result
     except Exception as e:
         logger.error(f"Error analyzing stock pattern: {e}")
         return f"Failed to analyze stock pattern: {str(e)}"
     
 @mcp.tool()
-async def get_ashare_quote(symbol: str, period: str = '1周'
+async def get_ashare_quote(symbol: str, period: str = '1周', frequency: str = 'daily'
                                    ) -> str:
     """
     获取股票行情数据
     Args:
         symbol: A股股票代码或者指数代码 (股票代码： 000001, 600001, 300001)
         period: 分析周期 (1年, 6个月, 3个月, 1个月, 1周)
+        frequency: 数据频率 (daily-日线, weekly-周线, monthly-月线, 1min-1分钟, 5min-5分钟, 15min-15分钟, 30min-30分钟, 60min-60分钟)
     """
     try:
         data_fetcher = StockDataFetcher()
-        stock_data = data_fetcher.fetch_stock_data(symbol, period)
+        stock_data = data_fetcher.fetch_stock_data(symbol, period, frequency)
         analysis_result = stock_data.to_dict()
         return str(analysis_result)
     except Exception as e:
@@ -92,13 +95,14 @@ async def get_ashare_financial(symbol: str
         return f"Failed to analyze stock pattern: {str(e)}"
 
 @mcp.tool()
-async def get_ashare_echarts(symbol: str, period: str = '1年', indicators: str = 'MA,MACD,KDJ,BOLL,BIAS') -> str:
+async def get_ashare_echarts(symbol: str, period: str = '1年', indicators: str = 'MA,MACD,KDJ,BOLL,BIAS', frequency: str = 'daily') -> str:
     """
     获取股票K线图及技术指标的ECharts HTML
     Args:
         symbol: A股股票代码或者指数代码 (股票代码： 000001, 600001, 300001)
         period: 分析周期 (1年, 6个月, 3个月, 1个月, 1周)
         indicators: 技术指标列表，用逗号分隔 (MA,MACD,KDJ,BOLL,BIAS,RSI)
+        frequency: 数据频率 (daily-日线, weekly-周线, monthly-月线, 1min-1分钟, 5min-5分钟, 15min-15分钟, 30min-30分钟, 60min-60分钟)
     """
     try:
         # 使用与ashare_analysis相同的保存路径
@@ -106,7 +110,7 @@ async def get_ashare_echarts(symbol: str, period: str = '1年', indicators: str 
         
         # 获取股票数据
         data_fetcher = StockDataFetcher()
-        stock_data = data_fetcher.fetch_stock_data(symbol, period)
+        stock_data = data_fetcher.fetch_stock_data(symbol, period, frequency)
         
         if stock_data.empty:
             return "无法获取股票数据，请检查股票代码是否正确"
@@ -125,7 +129,8 @@ async def get_ashare_echarts(symbol: str, period: str = '1年', indicators: str 
             indicators_data, 
             symbol, 
             requested_indicators,
-            save_path
+            save_path,
+            frequency
         )
         
         return f"ECharts HTML已生成并保存到output/charts目录\n\nHTML内容:\n{html_content}"
@@ -140,7 +145,7 @@ async def run_in_threadpool(func, *args, **kwargs):
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, lambda: func(*args, **kwargs))
 
-def pattern_run(symbol: str, period: str = '1年', save_path: str = './output') -> str:
+def pattern_run(symbol: str, period: str = '1年', save_path: str = './output', frequency: str = 'daily') -> str:
 
     
     # 初始化各模块
@@ -151,7 +156,7 @@ def pattern_run(symbol: str, period: str = '1年', save_path: str = './output') 
     
     # 获取股票数据
     print(f"正在获取 {symbol} 的历史数据...")
-    stock_data = data_fetcher.fetch_stock_data(symbol, period)
+    stock_data = data_fetcher.fetch_stock_data(symbol, period, frequency)
     
     # 获取财务和新闻数据
     print(f"正在获取 {symbol} 的财务和新闻数据...")
@@ -164,7 +169,7 @@ def pattern_run(symbol: str, period: str = '1年', save_path: str = './output') 
     
     # 生成可视化图表
     print("正在生成K线图和技术指标图...")
-    chart_path = visualizer.create_charts(stock_data, indicators, symbol, save_path)
+    chart_path = visualizer.create_charts(stock_data, indicators, symbol, save_path, frequency)
     
     # AI分析预测
     print("正在使用AI分析预测未来走势...")

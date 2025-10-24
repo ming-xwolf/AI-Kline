@@ -12,13 +12,14 @@ class StockDataFetcher:
     def __init__(self):
         self.today = datetime.now().strftime('%Y%m%d')
     
-    def fetch_stock_data(self, stock_code, period='1年'):
+    def fetch_stock_data(self, stock_code, period='1年', frequency='daily'):
         """
         获取股票的历史K线数据
         
         参数:
             stock_code (str): 股票代码，如 '000001'
             period (str): 获取数据的时间周期，默认为'1年'
+            frequency (str): 数据频率，支持 'daily', 'weekly', 'monthly', '1min', '5min', '15min', '30min', '60min'
             
         返回:
             pandas.DataFrame: 包含股票历史数据的DataFrame
@@ -50,25 +51,70 @@ class StockDataFetcher:
             start_date = (datetime.now() - timedelta(days=365)).strftime('%Y%m%d')
         
         try:
-            # 使用akshare获取股票历史数据
-            stock_data = ak.stock_zh_a_hist(symbol=stock_code, period="daily", 
-                                           start_date=start_date, end_date=self.today, 
-                                           adjust="qfq")
+            # 根据频率选择不同的akshare函数
+            if frequency in ['1min', '5min', '15min', '30min', '60min']:
+                # 分钟级数据使用不同的函数
+                period_map = {
+                    '1min': '1',
+                    '5min': '5', 
+                    '15min': '15',
+                    '30min': '30',
+                    '60min': '60'
+                }
+                # 分钟级数据需要调整开始日期格式
+                start_datetime = datetime.strptime(start_date, '%Y%m%d').strftime('%Y-%m-%d 09:30:00')
+                end_datetime = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                
+                stock_data = ak.stock_zh_a_hist_min_em(
+                    symbol=stock_code, 
+                    period=period_map[frequency],
+                    start_date=start_datetime, 
+                    end_date=end_datetime, 
+                    adjust="qfq"
+                )
+            else:
+                # 日线、周线、月线数据
+                period_map = {
+                    'daily': 'daily',
+                    'weekly': 'weekly', 
+                    'monthly': 'monthly'
+                }
+                stock_data = ak.stock_zh_a_hist(
+                    symbol=stock_code, 
+                    period=period_map.get(frequency, 'daily'), 
+                    start_date=start_date, 
+                    end_date=self.today, 
+                    adjust="qfq"
+                )
             
             # 重命名列以便后续处理
-            stock_data.rename(columns={
-                '日期': 'date',
-                '开盘': 'open',
-                '收盘': 'close',
-                '最高': 'high',
-                '最低': 'low',
-                '成交量': 'volume',
-                '成交额': 'amount',
-                '振幅': 'amplitude',
-                '涨跌幅': 'pct_change',
-                '涨跌额': 'change',
-                '换手率': 'turnover'
-            }, inplace=True)
+            if frequency in ['1min', '5min', '15min', '30min', '60min']:
+                # 分钟级数据的列名映射
+                stock_data.rename(columns={
+                    '时间': 'date',
+                    '开盘': 'open',
+                    '收盘': 'close',
+                    '最高': 'high',
+                    '最低': 'low',
+                    '成交量': 'volume',
+                    '成交额': 'amount',
+                    '均价': 'avg_price'
+                }, inplace=True)
+            else:
+                # 日线、周线、月线数据的列名映射
+                stock_data.rename(columns={
+                    '日期': 'date',
+                    '开盘': 'open',
+                    '收盘': 'close',
+                    '最高': 'high',
+                    '最低': 'low',
+                    '成交量': 'volume',
+                    '成交额': 'amount',
+                    '振幅': 'amplitude',
+                    '涨跌幅': 'pct_change',
+                    '涨跌额': 'change',
+                    '换手率': 'turnover'
+                }, inplace=True)
             
             # 将日期列转换为日期时间格式
             stock_data['date'] = pd.to_datetime(stock_data['date'])
