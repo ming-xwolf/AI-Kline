@@ -108,6 +108,21 @@ async def get_ashare_echarts(symbol: str, period: str = '1年', indicators: str 
         frequency: 数据频率 (daily-日线, weekly-周线, monthly-月线, 1min-1分钟, 5min-5分钟, 15min-15分钟, 30min-30分钟, 60min-60分钟)
     """
     try:
+        analysis_result = await run_in_threadpool(echarts_run, symbol=symbol, period=period, indicators=indicators, frequency=frequency)
+        return analysis_result
+    except Exception as e:
+        logger.error(f"Error generating ECharts HTML: {e}")
+        return f"生成ECharts HTML失败: {str(e)}"
+    
+
+async def run_in_threadpool(func, *args, **kwargs):
+    """Run a synchronous function in a threadpool."""
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(None, lambda: func(*args, **kwargs))
+
+def echarts_run(symbol: str, period: str = '1年', indicators: str = 'MA,MACD,KDJ,BOLL,BIAS', frequency: str = 'daily') -> str:
+    """生成ECharts HTML的核心函数"""
+    try:
         # 使用与ashare_analysis相同的保存路径
         save_path = './output'
         
@@ -139,14 +154,8 @@ async def get_ashare_echarts(symbol: str, period: str = '1年', indicators: str 
         return f"ECharts HTML已生成并保存到output/charts目录\n\nHTML内容:\n{html_content}"
         
     except Exception as e:
-        logger.error(f"Error generating ECharts HTML: {e}")
+        logger.error(f"Error in echarts_run: {e}")
         return f"生成ECharts HTML失败: {str(e)}"
-    
-
-async def run_in_threadpool(func, *args, **kwargs):
-    """Run a synchronous function in a threadpool."""
-    loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(None, lambda: func(*args, **kwargs))
 
 def pattern_run(symbol: str, period: str = '1年', save_path: str = './output', frequency: str = 'daily') -> str:
 
