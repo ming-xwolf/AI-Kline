@@ -90,6 +90,49 @@ async def get_ashare_financial(symbol: str
     except Exception as e:
         logger.error(f"Error analyzing stock pattern: {e}")
         return f"Failed to analyze stock pattern: {str(e)}"
+
+@mcp.tool()
+async def get_ashare_echarts(symbol: str, period: str = '1年', indicators: str = 'MA,MACD,KDJ,BOLL,BIAS') -> str:
+    """
+    获取股票K线图及技术指标的ECharts HTML
+    Args:
+        symbol: A股股票代码或者指数代码 (股票代码： 000001, 600001, 300001)
+        period: 分析周期 (1年, 6个月, 3个月, 1个月, 1周)
+        indicators: 技术指标列表，用逗号分隔 (MA,MACD,KDJ,BOLL,BIAS,RSI)
+    """
+    try:
+        # 使用与ashare_analysis相同的保存路径
+        save_path = './output'
+        
+        # 获取股票数据
+        data_fetcher = StockDataFetcher()
+        stock_data = data_fetcher.fetch_stock_data(symbol, period)
+        
+        if stock_data.empty:
+            return "无法获取股票数据，请检查股票代码是否正确"
+        
+        # 计算技术指标
+        technical_analyzer = TechnicalAnalyzer()
+        indicators_data = technical_analyzer.calculate_indicators(stock_data)
+        
+        # 解析用户指定的指标
+        requested_indicators = [ind.strip().upper() for ind in indicators.split(',')]
+        
+        # 生成ECharts HTML并保存
+        visualizer = Visualizer()
+        html_content = visualizer.create_echarts_html(
+            stock_data, 
+            indicators_data, 
+            symbol, 
+            requested_indicators,
+            save_path
+        )
+        
+        return f"ECharts HTML已生成并保存到output/charts目录\n\nHTML内容:\n{html_content}"
+        
+    except Exception as e:
+        logger.error(f"Error generating ECharts HTML: {e}")
+        return f"生成ECharts HTML失败: {str(e)}"
     
 
 async def run_in_threadpool(func, *args, **kwargs):
