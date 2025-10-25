@@ -18,6 +18,48 @@ from modules.chan_visualizer import ChanVisualizer
 # Initialize FastMCP server
 mcp = FastMCP("AI-Kline", host=os.getenv("MCP_HOST", "0.0.0.0"), port=os.getenv("MCP_PORT", 8000))
 
+# AI-Kline MCP服务器工具说明
+"""
+AI-Kline MCP服务器提供专业的A股股票分析工具集
+
+主要功能模块:
+1. 股票数据分析 (ashare_analysis) - 全面的技术分析和AI智能分析
+2. 行情数据获取 (get_ashare_quote) - 获取股票历史行情数据
+3. 新闻资讯获取 (get_ashare_news) - 获取股票相关新闻和公告
+4. 财务数据获取 (get_ashare_financial) - 获取公司财务指标和基本面数据
+5. 交互式图表生成 (get_ashare_echarts) - 生成ECharts交互式图表
+6. ECharts配置生成 (get_ashare_echarts_markdown) - 生成ECharts配置的markdown格式
+7. 缠论技术分析 (chan_analysis) - 基于缠论理论的走势分析
+8. 缠论图表生成 (chan_chart) - 生成缠论分析可视化图表
+
+支持的股票类型:
+- 主板股票 (000001, 600036等)
+- 创业板股票 (300001等)
+- 科创板股票 (688001等)
+- 指数代码 (000001上证指数, 399001深证成指等)
+
+支持的时间周期:
+- 1年, 6个月, 3个月, 1个月, 1周
+
+支持的数据频率:
+- 日线 (daily), 周线 (weekly), 月线 (monthly)
+- 分钟线: 1min, 5min, 15min, 30min, 60min
+
+技术指标支持:
+- MA (移动平均线)
+- MACD (MACD指标)
+- KDJ (KDJ随机指标)
+- BOLL (布林带)
+- BIAS (乖离率)
+- RSI (相对强弱指标)
+
+使用建议:
+- 对于长期投资分析，推荐使用日线或周线数据
+- 对于短期交易分析，推荐使用分钟线数据
+- 缠论分析建议使用日线数据以获得最佳效果
+- 技术指标可根据需要自由组合使用
+"""
+
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -29,11 +71,54 @@ load_dotenv()
 async def ashare_analysis(symbol: str, period: str = '1年', frequency: str = 'daily'
                                    ) -> str:
     """
-    分析股票
-    Args:
-        symbol: A股股票代码或者指数代码 (股票代码： 000001, 600001, 300001)
-        period: 分析周期 (1年, 6个月, 3个月, 1个月, 1周)
-        frequency: 数据频率 (daily-日线, weekly-周线, monthly-月线, 1min-1分钟, 5min-5分钟, 15min-15分钟, 30min-30分钟, 60min-60分钟)
+    执行A股股票的全面技术分析，包括K线图、技术指标计算、AI智能分析和投资建议
+    
+    功能特性:
+    - 获取股票历史数据（支持多种时间周期和频率）
+    - 计算多种技术指标（MA、MACD、KDJ、BOLL、RSI等）
+    - 生成专业的K线图和技术指标图表
+    - 使用AI分析股票走势并给出投资建议
+    - 获取财务数据和新闻资讯进行综合分析
+    
+    参数说明:
+        symbol (str): A股股票代码，支持以下格式：
+            - 主板股票：000001（平安银行）、600036（招商银行）
+            - 创业板股票：300001（特锐德）
+            - 科创板股票：688001（华兴源创）
+            - 指数代码：000001（上证指数）、399001（深证成指）
+        period (str): 分析周期，可选值：
+            - '1年'：获取1年历史数据（默认）
+            - '6个月'：获取6个月历史数据
+            - '3个月'：获取3个月历史数据
+            - '1个月'：获取1个月历史数据
+            - '1周'：获取1周历史数据
+        frequency (str): 数据频率，可选值：
+            - 'daily'：日线数据（默认）
+            - 'weekly'：周线数据
+            - 'monthly'：月线数据
+            - '1min'：1分钟K线
+            - '5min'：5分钟K线
+            - '15min'：15分钟K线
+            - '30min'：30分钟K线
+            - '60min'：60分钟K线
+    
+    返回值:
+        str: 包含以下内容的分析报告：
+            - 股票基本信息
+            - 技术指标分析结果
+            - AI智能分析结论
+            - 投资建议和风险提示
+            - 图表文件保存路径
+    
+    使用示例:
+        # 分析平安银行1年日线数据
+        result = await ashare_analysis("000001", "1年", "daily")
+        
+        # 分析招商银行6个月周线数据
+        result = await ashare_analysis("600036", "6个月", "weekly")
+        
+        # 分析创业板股票1个月5分钟数据
+        result = await ashare_analysis("300001", "1个月", "5min")
     """
     try:
         analysis_result = await run_in_threadpool(pattern_run, symbol=symbol, period=period, frequency=frequency)
@@ -46,11 +131,33 @@ async def ashare_analysis(symbol: str, period: str = '1年', frequency: str = 'd
 async def get_ashare_quote(symbol: str, period: str = '1周', frequency: str = 'daily'
                                    ) -> str:
     """
-    获取股票行情数据
-    Args:
-        symbol: A股股票代码或者指数代码 (股票代码： 000001, 600001, 300001)
-        period: 分析周期 (1年, 6个月, 3个月, 1个月, 1周)
-        frequency: 数据频率 (daily-日线, weekly-周线, monthly-月线, 1min-1分钟, 5min-5分钟, 15min-15分钟, 30min-30分钟, 60min-60分钟)
+    获取A股股票的实时行情和历史数据
+    
+    功能特性:
+    - 获取股票的开盘价、收盘价、最高价、最低价
+    - 获取成交量、成交额等交易数据
+    - 支持多种时间周期和频率的数据获取
+    - 返回结构化的股票数据，便于进一步分析
+    
+    参数说明:
+        symbol (str): A股股票代码，支持主板、创业板、科创板股票
+        period (str): 数据周期，默认'1周'，可选：
+            - '1年'、'6个月'、'3个月'、'1个月'、'1周'
+        frequency (str): 数据频率，默认'daily'，可选：
+            - 'daily'、'weekly'、'monthly'、'1min'、'5min'、'15min'、'30min'、'60min'
+    
+    返回值:
+        str: JSON格式的股票数据，包含：
+            - 时间序列数据
+            - OHLCV数据（开高低收量）
+            - 技术指标基础数据
+    
+    使用示例:
+        # 获取平安银行1周日线数据
+        data = await get_ashare_quote("000001", "1周", "daily")
+        
+        # 获取招商银行1个月5分钟数据
+        data = await get_ashare_quote("600036", "1个月", "5min")
     """
     try:
         data_fetcher = StockDataFetcher()
@@ -65,9 +172,33 @@ async def get_ashare_quote(symbol: str, period: str = '1周', frequency: str = '
 async def get_ashare_news(symbol: str
                                    ) -> str:
     """
-    获取股票新闻
-    Args:
-        symbol: A股股票代码或者指数代码 (股票代码： 000001, 600001, 300001)
+    获取A股股票相关的新闻资讯和公告信息
+    
+    功能特性:
+    - 获取股票相关的财经新闻
+    - 获取公司公告和重大事项
+    - 获取行业动态和市场资讯
+    - 提供新闻时间、来源和内容摘要
+    
+    参数说明:
+        symbol (str): A股股票代码，支持：
+            - 主板股票：000001、600036等
+            - 创业板股票：300001等
+            - 科创板股票：688001等
+    
+    返回值:
+        str: JSON格式的新闻数据，包含：
+            - 新闻标题和内容
+            - 发布时间和来源
+            - 新闻分类和重要性
+            - 相关股票代码
+    
+    使用示例:
+        # 获取平安银行相关新闻
+        news = await get_ashare_news("000001")
+        
+        # 获取招商银行相关新闻
+        news = await get_ashare_news("600036")
     """
     try:
         financial_data = {}
@@ -84,9 +215,34 @@ async def get_ashare_news(symbol: str
 async def get_ashare_financial(symbol: str
                                    ) -> str:
     """
-    获取股票财务数据
-    Args:
-        symbol: A股股票代码或者指数代码 (股票代码： 000001, 600001, 300001)
+    获取A股股票的财务数据和基本面信息
+    
+    功能特性:
+    - 获取公司财务报表数据（资产负债表、利润表、现金流量表）
+    - 获取关键财务指标（PE、PB、ROE、ROA等）
+    - 获取公司基本信息（市值、股本、行业分类等）
+    - 提供财务数据的趋势分析
+    
+    参数说明:
+        symbol (str): A股股票代码，支持：
+            - 主板股票：000001、600036等
+            - 创业板股票：300001等
+            - 科创板股票：688001等
+    
+    返回值:
+        str: JSON格式的财务数据，包含：
+            - 基本财务指标
+            - 盈利能力指标
+            - 偿债能力指标
+            - 运营能力指标
+            - 成长能力指标
+    
+    使用示例:
+        # 获取平安银行财务数据
+        financial = await get_ashare_financial("000001")
+        
+        # 获取招商银行财务数据
+        financial = await get_ashare_financial("600036")
     """
     try:
         data_fetcher = StockDataFetcher()
@@ -100,12 +256,44 @@ async def get_ashare_financial(symbol: str
 @mcp.tool()
 async def get_ashare_echarts(symbol: str, period: str = '1年', indicators: str = 'MA,MACD,KDJ,BOLL,BIAS', frequency: str = 'daily') -> str:
     """
-    获取股票K线图及技术指标的ECharts HTML
-    Args:
-        symbol: A股股票代码或者指数代码 (股票代码： 000001, 600001, 300001)
-        period: 分析周期 (1年, 6个月, 3个月, 1个月, 1周)
-        indicators: 技术指标列表，用逗号分隔 (MA,MACD,KDJ,BOLL,BIAS,RSI)
-        frequency: 数据频率 (daily-日线, weekly-周线, monthly-月线, 1min-1分钟, 5min-5分钟, 15min-15分钟, 30min-30分钟, 60min-60分钟)
+    生成A股股票的交互式ECharts图表HTML文件
+    
+    功能特性:
+    - 生成专业的K线图（蜡烛图）
+    - 支持多种技术指标叠加显示
+    - 生成交互式HTML图表，支持缩放、平移等操作
+    - 图表保存为HTML文件，可在浏览器中直接查看
+    - 支持自定义技术指标组合
+    
+    参数说明:
+        symbol (str): A股股票代码，支持主板、创业板、科创板股票
+        period (str): 分析周期，默认'1年'，可选：
+            - '1年'、'6个月'、'3个月'、'1个月'、'1周'
+        indicators (str): 技术指标列表，用逗号分隔，默认'MA,MACD,KDJ,BOLL,BIAS'，可选：
+            - 'MA'：移动平均线
+            - 'MACD'：MACD指标
+            - 'KDJ'：KDJ随机指标
+            - 'BOLL'：布林带
+            - 'BIAS'：乖离率
+            - 'RSI'：相对强弱指标
+        frequency (str): 数据频率，默认'daily'，可选：
+            - 'daily'、'weekly'、'monthly'、'1min'、'5min'、'15min'、'30min'、'60min'
+    
+    返回值:
+        str: 包含以下信息：
+            - 图表生成成功提示
+            - HTML文件保存路径
+            - 图表内容预览
+    
+    使用示例:
+        # 生成平安银行1年日线图表，包含MA和MACD指标
+        result = await get_ashare_echarts("000001", "1年", "MA,MACD", "daily")
+        
+        # 生成招商银行6个月周线图表，包含所有技术指标
+        result = await get_ashare_echarts("600036", "6个月", "MA,MACD,KDJ,BOLL,RSI", "weekly")
+        
+        # 生成创业板股票1个月5分钟图表
+        result = await get_ashare_echarts("300001", "1个月", "MA,MACD", "5min")
     """
     try:
         analysis_result = await run_in_threadpool(echarts_run, symbol=symbol, period=period, indicators=indicators, frequency=frequency)
@@ -192,11 +380,44 @@ def pattern_run(symbol: str, period: str = '1年', save_path: str = './output', 
 @mcp.tool()
 async def chan_analysis(symbol: str, period: str = '1年', frequency: str = 'daily') -> str:
     """
-    执行缠论分析
-    Args:
-        symbol: A股股票代码 (例如: 000001, 600001, 300001)
-        period: 分析周期 (1年, 6个月, 3个月, 1个月, 1周)
-        frequency: 数据频率 (daily-日线, weekly-周线, monthly-月线)
+    执行缠论技术分析，基于缠中说禅理论进行股票走势分析
+    
+    功能特性:
+    - 基于缠论理论进行股票走势分析
+    - 识别笔、线段、中枢等缠论核心概念
+    - 分析买卖点和趋势转换
+    - 提供缠论视角的技术分析报告
+    - 支持多时间周期的缠论分析
+    
+    参数说明:
+        symbol (str): A股股票代码，支持：
+            - 主板股票：000001、600036等
+            - 创业板股票：300001等
+            - 科创板股票：688001等
+        period (str): 分析周期，默认'1年'，可选：
+            - '1年'、'6个月'、'3个月'、'1个月'、'1周'
+        frequency (str): 数据频率，默认'daily'，可选：
+            - 'daily'：日线（推荐用于缠论分析）
+            - 'weekly'：周线
+            - 'monthly'：月线
+    
+    返回值:
+        str: 缠论分析报告，包含：
+            - 笔的识别和分析
+            - 线段的划分
+            - 中枢的识别
+            - 买卖点分析
+            - 趋势判断和操作建议
+    
+    使用示例:
+        # 对平安银行进行1年日线缠论分析
+        result = await chan_analysis("000001", "1年", "daily")
+        
+        # 对招商银行进行6个月周线缠论分析
+        result = await chan_analysis("600036", "6个月", "weekly")
+        
+        # 对创业板股票进行3个月日线缠论分析
+        result = await chan_analysis("300001", "3个月", "daily")
     """
     try:
         analysis_result = await run_in_threadpool(chan_analysis_run, symbol=symbol, period=period, frequency=frequency)
@@ -230,13 +451,93 @@ def chan_analysis_run(symbol: str, period: str = '1年', frequency: str = 'daily
         return f"缠论分析过程中出错: {str(e)}"
 
 @mcp.tool()
+async def get_ashare_echarts_markdown(symbol: str, period: str = '1年', indicators: str = 'MA,MACD,KDJ,BOLL,BIAS', frequency: str = 'daily') -> str:
+    """
+    生成A股股票的ECharts配置的markdown格式字符串
+    
+    功能特性:
+    - 生成ECharts配置的JSON格式
+    - 支持K线图（蜡烛图）显示
+    - 支持多种技术指标叠加显示
+    - 返回markdown格式的代码块，可直接在支持ECharts的markdown渲染器中使用
+    - 支持自定义技术指标组合
+    
+    参数说明:
+        symbol (str): A股股票代码，支持主板、创业板、科创板股票
+        period (str): 分析周期，默认'1年'，可选：
+            - '1年'、'6个月'、'3个月'、'1个月'、'1周'
+        indicators (str): 技术指标列表，用逗号分隔，默认'MA,MACD,KDJ,BOLL,BIAS'，可选：
+            - 'MA'：移动平均线
+            - 'MACD'：MACD指标
+            - 'KDJ'：KDJ随机指标
+            - 'BOLL'：布林带
+            - 'BIAS'：乖离率
+            - 'RSI'：相对强弱指标
+        frequency (str): 数据频率，默认'daily'，可选：
+            - 'daily'、'weekly'、'monthly'、'1min'、'5min'、'15min'、'30min'、'60min'
+    
+    返回值:
+        str: markdown格式的ECharts配置，包含：
+            - ```echarts代码块
+            - 完整的ECharts配置JSON
+            - 支持K线图和技术指标显示
+    
+    使用示例:
+        # 生成平安银行1年日线ECharts markdown
+        result = await get_ashare_echarts_markdown("000001", "1年", "MA,MACD", "daily")
+        
+        # 生成招商银行6个月周线ECharts markdown
+        result = await get_ashare_echarts_markdown("600036", "6个月", "MA,MACD,KDJ,BOLL,RSI", "weekly")
+        
+        # 生成创业板股票1个月5分钟ECharts markdown
+        result = await get_ashare_echarts_markdown("300001", "1个月", "MA,MACD", "5min")
+    """
+    try:
+        markdown_result = await run_in_threadpool(echarts_markdown_run, symbol=symbol, period=period, indicators=indicators, frequency=frequency)
+        return markdown_result
+    except Exception as e:
+        logger.error(f"Error generating ECharts markdown: {e}")
+        return f"生成ECharts markdown失败: {str(e)}"
+
+@mcp.tool()
 async def chan_chart(symbol: str, period: str = '1年', frequency: str = 'daily') -> str:
     """
-    生成缠论分析图表
-    Args:
-        symbol: A股股票代码 (例如: 000001, 600001, 300001)
-        period: 分析周期 (1年, 6个月, 3个月, 1个月, 1周)
-        frequency: 数据频率 (daily-日线, weekly-周线, monthly-月线)
+    生成缠论分析的可视化图表
+    
+    功能特性:
+    - 生成包含缠论元素的K线图
+    - 标注笔、线段、中枢等缠论结构
+    - 显示买卖点和趋势线
+    - 生成专业的缠论分析图表
+    - 图表保存为PNG格式，便于查看和分享
+    
+    参数说明:
+        symbol (str): A股股票代码，支持：
+            - 主板股票：000001、600036等
+            - 创业板股票：300001等
+            - 科创板股票：688001等
+        period (str): 分析周期，默认'1年'，可选：
+            - '1年'、'6个月'、'3个月'、'1个月'、'1周'
+        frequency (str): 数据频率，默认'daily'，可选：
+            - 'daily'：日线（推荐用于缠论分析）
+            - 'weekly'：周线
+            - 'monthly'：月线
+    
+    返回值:
+        str: 图表生成结果，包含：
+            - 图表生成成功提示
+            - 图表文件保存路径
+            - 图表内容描述
+    
+    使用示例:
+        # 生成平安银行1年日线缠论图表
+        result = await chan_chart("000001", "1年", "daily")
+        
+        # 生成招商银行6个月周线缠论图表
+        result = await chan_chart("600036", "6个月", "weekly")
+        
+        # 生成创业板股票3个月日线缠论图表
+        result = await chan_chart("300001", "3个月", "daily")
     """
     try:
         chart_path = await run_in_threadpool(chan_chart_run, symbol=symbol, period=period, frequency=frequency)
@@ -244,6 +545,42 @@ async def chan_chart(symbol: str, period: str = '1年', frequency: str = 'daily'
     except Exception as e:
         logger.error(f"Error generating chan chart: {e}")
         return f"生成缠论图表失败: {str(e)}"
+
+def echarts_markdown_run(symbol: str, period: str = '1年', indicators: str = 'MA,MACD,KDJ,BOLL,BIAS', frequency: str = 'daily') -> str:
+    """生成ECharts markdown格式的核心函数"""
+    try:
+        # 获取股票数据
+        data_fetcher = StockDataFetcher()
+        stock_data = data_fetcher.fetch_stock_data(symbol, period, frequency)
+        
+        if stock_data.empty:
+            return "无法获取股票数据，请检查股票代码是否正确"
+        
+        # 计算技术指标
+        technical_analyzer = TechnicalAnalyzer()
+        indicators_data = technical_analyzer.calculate_indicators(stock_data)
+        
+        # 解析用户指定的指标
+        requested_indicators = [ind.strip().upper() for ind in indicators.split(',')]
+        
+        # 生成ECharts配置
+        visualizer = Visualizer()
+        echarts_config = visualizer.create_echarts_config(
+            stock_data, 
+            indicators_data, 
+            symbol, 
+            requested_indicators,
+            frequency
+        )
+        
+        # 格式化为markdown
+        markdown_content = f"```echarts\n{json.dumps(echarts_config, ensure_ascii=False, indent=2)}\n```"
+        
+        return markdown_content
+        
+    except Exception as e:
+        logger.error(f"Error in echarts_markdown_run: {e}")
+        return f"生成ECharts markdown失败: {str(e)}"
 
 def chan_chart_run(symbol: str, period: str = '1年', frequency: str = 'daily') -> str:
     """生成缠论分析图表的核心函数"""
