@@ -41,8 +41,8 @@ AI-Kline MCP服务器提供专业的A股股票分析工具集
 2. 行情数据获取 (get_ashare_quote) - 获取股票历史行情数据
 3. 新闻资讯获取 (get_ashare_news) - 获取股票相关新闻和公告
 4. 财务数据获取 (get_ashare_financial) - 获取公司财务指标和基本面数据
-5. K线图HTML生成 (generate_finance_candlestick_html_chart) - 生成交互式K线图并上传到MinIO
-6. K线图图片生成 (generate_finance_candlestick_image_chart) - 生成PNG/SVG格式的K线图图片
+5. K线图HTML生成 (generate_candlestick_html_chart) - 生成交互式K线图并上传到MinIO
+6. K线图图片生成 (generate_candlestick_image_chart) - 生成PNG/SVG格式的K线图图片
 7. 缠论技术分析 (chan_analysis) - 基于缠论理论的走势分析
 8. 缠论图表生成 (chan_chart) - 生成缠论分析可视化图表
 
@@ -266,9 +266,9 @@ async def get_ashare_financial(symbol: str
         return f"Failed to analyze stock pattern: {str(e)}"
 
 @mcp.tool()
-async def generate_finance_candlestick_html_chart(symbol: str, period: str = '1年', indicators: str = 'MA,MACD,KDJ,BOLL,BIAS', frequency: str = 'daily') -> str:
+async def generate_candlestick_html_chart(symbol: str, period: str = '1年', indicators: str = 'MA,MACD,KDJ,BOLL,BIAS', frequency: str = 'daily') -> str:
     """
-    生成金融K线图HTML图表
+    生成K线图HTML图表
     
     功能特性:
     - 生成A股股票的HTML ECharts K线图表
@@ -301,10 +301,10 @@ async def generate_finance_candlestick_html_chart(symbol: str, period: str = '1�
         
     使用示例:
         # 生成平安银行1年日线K线图
-        result = await generate_finance_candlestick_html_chart("000001", "1年", "MA,MACD", "daily")
+        result = await generate_candlestick_html_chart("000001", "1年", "MA,MACD", "daily")
         
         # 生成招商银行6个月周线K线图
-        result = await generate_finance_candlestick_html_chart("600036", "6个月", "MA,MACD,KDJ,BOLL,RSI", "weekly")
+        result = await generate_candlestick_html_chart("600036", "6个月", "MA,MACD,KDJ,BOLL,RSI", "weekly")
         
         # 解析返回的JSON
         import json
@@ -348,9 +348,9 @@ async def generate_finance_candlestick_html_chart(symbol: str, period: str = '1�
         }, ensure_ascii=False)
 
 @mcp.tool()
-async def generate_finance_candlestick_image_chart(symbol: str, period: str = '1年', indicators: str = 'MA,MACD,KDJ,BOLL', frequency: str = 'daily', width: int = 800, height: int = 600, output_type: str = 'png'):
+async def generate_candlestick_image_chart(symbol: str, period: str = '1年', indicators: str = 'MA,MACD,KDJ,BOLL', frequency: str = 'daily', width: int = 800, height: int = 600, output_type: str = 'png'):
     """
-    生成金融K线图图片格式图表
+    生成K线图图片格式图表
     
     功能特性:
     - 生成A股股票的PNG/SVG图片格式K线图表
@@ -391,13 +391,13 @@ async def generate_finance_candlestick_image_chart(symbol: str, period: str = '1
     
     使用示例:
         # 生成平安银行1年日线PNG图表，包含MA和MACD指标
-        result = await generate_finance_candlestick_image_chart("000001", "1年", "MA,MACD", "daily", 800, 600, "png")
+        result = await generate_candlestick_image_chart("000001", "1年", "MA,MACD", "daily", 800, 600, "png")
         
         # 生成招商银行6个月周线SVG图表，包含所有技术指标
-        result = await generate_finance_candlestick_image_chart("600036", "6个月", "MA,MACD,KDJ,BOLL", "weekly", 1000, 700, "svg")
+        result = await generate_candlestick_image_chart("600036", "6个月", "MA,MACD,KDJ,BOLL", "weekly", 1000, 700, "svg")
         
         # 生成创业板股票1个月5分钟PNG图表
-        result = await generate_finance_candlestick_image_chart("300001", "1个月", "MA,MACD", "5min", 1200, 800, "png")
+        result = await generate_candlestick_image_chart("300001", "1个月", "MA,MACD", "5min", 1200, 800, "png")
     """
     try:
         # chart_image_run 返回：
@@ -544,7 +544,7 @@ def chart_image_run(symbol: str, period: str = '1年', indicators: str = 'MA,MAC
             height,
             "default",
             output_type,
-            "generate_finance_candlestick_image_chart",
+            "generate_candlestick_image_chart",
             symbol,
             indicators
         )
