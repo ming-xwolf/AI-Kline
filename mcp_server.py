@@ -14,6 +14,19 @@ from modules.ai_analyzer import AIAnalyzer
 from modules.chan_analyzer import ChanAnalyzer
 from modules.chan_analysis_engine import ChanAnalysisEngine
 from modules.chan_visualizer import ChanVisualizer
+from modules.image_generator import ImageGenerator
+
+# 尝试导入 MCP ImageContent 类型
+try:
+    from mcp.types import ImageContent
+    MCP_IMAGE_AVAILABLE = True
+except ImportError:
+    try:
+        from mcp.server.models import ImageContent
+        MCP_IMAGE_AVAILABLE = True
+    except ImportError:
+        MCP_IMAGE_AVAILABLE = False
+        ImageContent = None
 
 # Initialize FastMCP server
 mcp = FastMCP("AI-Kline", host=os.getenv("MCP_HOST", "0.0.0.0"), port=os.getenv("MCP_PORT", 8000))
@@ -28,7 +41,7 @@ AI-Kline MCP服务器提供专业的A股股票分析工具集
 3. 新闻资讯获取 (get_ashare_news) - 获取股票相关新闻和公告
 4. 财务数据获取 (get_ashare_financial) - 获取公司财务指标和基本面数据
 5. 交互式图表生成 (get_ashare_echarts) - 生成ECharts交互式图表
-6. ECharts配置生成 (get_ashare_echarts_markdown) - 生成ECharts配置的markdown格式
+6. 图片格式图表生成 (get_ashare_chart_image) - 生成PNG/SVG格式的图表图片
 7. 缠论技术分析 (chan_analysis) - 基于缠论理论的走势分析
 8. 缠论图表生成 (chan_chart) - 生成缠论分析可视化图表
 
@@ -50,8 +63,6 @@ AI-Kline MCP服务器提供专业的A股股票分析工具集
 - MACD (MACD指标)
 - KDJ (KDJ随机指标)
 - BOLL (布林带)
-- BIAS (乖离率)
-- RSI (相对强弱指标)
 
 使用建议:
 - 对于长期投资分析，推荐使用日线或周线数据
@@ -67,7 +78,7 @@ logger = logging.getLogger(__name__)
 # 加载环境变量
 load_dotenv()
 
-@mcp.tool()
+# @mcp.tool()
 async def ashare_analysis(symbol: str, period: str = '1年', frequency: str = 'daily'
                                    ) -> str:
     """
@@ -253,18 +264,14 @@ async def get_ashare_financial(symbol: str
         logger.error(f"Error analyzing stock pattern: {e}")
         return f"Failed to analyze stock pattern: {str(e)}"
 
-@mcp.tool()
+# @mcp.tool()
 async def get_ashare_echarts(symbol: str, period: str = '1年', indicators: str = 'MA,MACD,KDJ,BOLL,BIAS', frequency: str = 'daily') -> str:
     """
-    生成A股股票的交互式ECharts图表HTML文件
+    生成A股股票的html echarts 图表
     
     功能特性:
-    - 生成专业的K线图（蜡烛图）
-    - 支持多种技术指标叠加显示
-    - 生成交互式HTML图表，支持缩放、平移等操作
-    - 图表保存为HTML文件，可在浏览器中直接查看
-    - 支持自定义技术指标组合
-    
+    - 生成A股股票的html echarts 图表内容
+
     参数说明:
         symbol (str): A股股票代码，支持主板、创业板、科创板股票
         period (str): 分析周期，默认'1年'，可选：
@@ -281,9 +288,7 @@ async def get_ashare_echarts(symbol: str, period: str = '1年', indicators: str 
     
     返回值:
         str: 包含以下信息：
-            - 图表生成成功提示
-            - HTML文件保存路径
-            - 图表内容预览
+            - K线图和指标图的HTML内容
     
     使用示例:
         # 生成平安银行1年日线图表，包含MA和MACD指标
@@ -301,14 +306,98 @@ async def get_ashare_echarts(symbol: str, period: str = '1年', indicators: str 
     except Exception as e:
         logger.error(f"Error generating ECharts HTML: {e}")
         return f"生成ECharts HTML失败: {str(e)}"
+
+@mcp.tool()
+async def get_ashare_chart_image(symbol: str, period: str = '1年', indicators: str = 'MA,MACD,KDJ,BOLL', frequency: str = 'daily', width: int = 800, height: int = 600, output_type: str = 'png'):
+    """
+    生成A股股票的图片格式图表
     
+    功能特性:
+    - 生成A股股票的PNG/SVG图片格式图表
+    - 支持多种技术指标叠加显示
+    - 图片直接在聊天界面显示，无需额外操作
+    - 自动保存图片到本地 output/charts 目录
+
+    参数说明:
+        symbol (str): A股股票代码，支持主板、创业板、科创板股票
+        period (str): 分析周期，默认'1年'，可选：
+            - '1年'、'6个月'、'3个月'、'1个月'、'1周'
+        indicators (str): 技术指标列表，用逗号分隔，默认'MA,MACD,KDJ,BOLL'，可选：
+            - 'MA'：移动平均线
+            - 'MACD'：MACD指标
+            - 'KDJ'：KDJ随机指标
+            - 'BOLL'：布林带
+        frequency (str): 数据频率，默认'daily'，可选：
+            - 'daily'、'weekly'、'monthly'、'1min'、'5min'、'15min'、'30min'、'60min'
+        width (int): 图片宽度，默认800像素
+        height (int): 图片高度，默认600像素（自动根据子图数量调整）
+        output_type (str): 输出格式，默认'png'，可选：
+            - 'png'：PNG图片格式
+            - 'svg'：SVG矢量图格式
+    
+    返回值:
+        ImageContent: MCP ImageContent对象，包含base64编码的图片数据
+            - type: "image"
+            - data: base64编码的图片数据
+            - mimeType: 图片MIME类型（image/png 或 image/svg+xml）
+
+    
+    使用示例:
+        # 生成平安银行1年日线PNG图表，包含MA和MACD指标
+        result = await get_ashare_chart_image("000001", "1年", "MA,MACD", "daily", 800, 600, "png")
+        
+        # 生成招商银行6个月周线SVG图表，包含所有技术指标
+        result = await get_ashare_chart_image("600036", "6个月", "MA,MACD,KDJ,BOLL", "weekly", 1000, 700, "svg")
+        
+        # 生成创业板股票1个月5分钟PNG图表
+        result = await get_ashare_chart_image("300001", "1个月", "MA,MACD", "5min", 1200, 800, "png")
+    """
+    try:
+        # chart_image_run 返回：
+        # - PNG: base64 字符串
+        # - SVG: SVG 字符串（未编码）
+        chart_data = await run_in_threadpool(chart_image_run, symbol=symbol, period=period, indicators=indicators, frequency=frequency, width=width, height=height, output_type=output_type)
+        
+        # 根据输出类型确定 mimeType 和最终数据
+        if output_type == "svg":
+            # SVG: 将字符串转换为 base64
+            import base64
+            mime_type = "image/svg+xml"
+            base64_data = base64.b64encode(chart_data.encode('utf-8')).decode('utf-8')
+        else:
+            # PNG: 已经是 base64
+            mime_type = "image/png"
+            base64_data = chart_data
+        
+        # 尝试使用 MCP ImageContent 类型
+        if MCP_IMAGE_AVAILABLE and ImageContent is not None:
+            try:
+                # 使用 MCP ImageContent 类型
+                return ImageContent(type="image", data=base64_data, mimeType=mime_type)
+            except Exception as e:
+                logger.warning(f"Could not create MCP ImageContent object: {e}")
+        
+        # 回退到字典格式
+        return [{
+            "type": "image",
+            "data": base64_data,
+            "mimeType": mime_type
+        }]
+        
+    except Exception as e:
+        logger.error(f"Error generating chart image: {e}")
+        # 返回错误信息
+        return [{
+            "type": "text",
+            "text": f"生成图表图片失败: {str(e)}"
+        }]
 
 async def run_in_threadpool(func, *args, **kwargs):
     """Run a synchronous function in a threadpool."""
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, lambda: func(*args, **kwargs))
 
-def echarts_run(symbol: str, period: str = '1年', indicators: str = 'MA,MACD,KDJ,BOLL,BIAS', frequency: str = 'daily') -> str:
+def echarts_run(symbol: str, period: str = '1年', indicators: str = 'MA,MACD,KDJ,BOLL', frequency: str = 'daily') -> str:
     """生成ECharts HTML的核心函数"""
     try:
         # 使用与ashare_analysis相同的保存路径
@@ -339,11 +428,59 @@ def echarts_run(symbol: str, period: str = '1年', indicators: str = 'MA,MACD,KD
             frequency
         )
         
-        return f"ECharts HTML已生成并保存到output/charts目录\n\nHTML内容:\n{html_content}"
+        return f"```html\n{html_content}\n```"
         
     except Exception as e:
         logger.error(f"Error in echarts_run: {e}")
         return f"生成ECharts HTML失败: {str(e)}"
+
+def chart_image_run(symbol: str, period: str = '1年', indicators: str = 'MA,MACD,KDJ,BOLL', frequency: str = 'daily', width: int = 800, height: int = 600, output_type: str = 'png') -> str:
+    """生成图表图片的核心函数，返回：
+    - PNG: base64编码的字符串
+    - SVG: SVG字符串（未编码）
+    """
+    try:
+        # 获取股票数据
+        data_fetcher = StockDataFetcher()
+        stock_data = data_fetcher.fetch_stock_data(symbol, period, frequency)
+        
+        if stock_data.empty:
+            raise Exception("无法获取股票数据，请检查股票代码是否正确")
+        
+        # 计算技术指标
+        technical_analyzer = TechnicalAnalyzer()
+        indicators_data = technical_analyzer.calculate_indicators(stock_data)
+        
+        # 解析用户指定的指标
+        requested_indicators = [ind.strip().upper() for ind in indicators.split(',')]
+        
+        # 生成图片
+        image_generator = ImageGenerator()
+        echarts_option = image_generator.convert_echarts_option_to_candlestick_format(
+            stock_data, 
+            indicators_data, 
+            symbol, 
+            requested_indicators,
+            frequency
+        )
+        
+        # 生成图片数据（返回base64字符串）
+        base64_data = image_generator.generate_chart_image(
+            echarts_option,
+            width,
+            height,
+            "default",
+            output_type,
+            "get_ashare_chart_image",
+            symbol,
+            indicators
+        )
+        
+        return base64_data
+        
+    except Exception as e:
+        logger.error(f"Error in chart_image_run: {e}")
+        raise
 
 def pattern_run(symbol: str, period: str = '1年', save_path: str = './output', frequency: str = 'daily') -> str:
 
@@ -450,54 +587,6 @@ def chan_analysis_run(symbol: str, period: str = '1年', frequency: str = 'daily
     except Exception as e:
         return f"缠论分析过程中出错: {str(e)}"
 
-@mcp.tool()
-async def get_ashare_echarts_markdown(symbol: str, period: str = '1年', indicators: str = 'MA,MACD,KDJ,BOLL,BIAS', frequency: str = 'daily') -> str:
-    """
-    生成A股股票的ECharts配置的markdown格式字符串
-    
-    功能特性:
-    - 生成ECharts配置的JSON格式
-    - 支持K线图（蜡烛图）显示
-    - 支持多种技术指标叠加显示
-    - 返回markdown格式的代码块，可直接在支持ECharts的markdown渲染器中使用
-    - 支持自定义技术指标组合
-    
-    参数说明:
-        symbol (str): A股股票代码，支持主板、创业板、科创板股票
-        period (str): 分析周期，默认'1年'，可选：
-            - '1年'、'6个月'、'3个月'、'1个月'、'1周'
-        indicators (str): 技术指标列表，用逗号分隔，默认'MA,MACD,KDJ,BOLL,BIAS'，可选：
-            - 'MA'：移动平均线
-            - 'MACD'：MACD指标
-            - 'KDJ'：KDJ随机指标
-            - 'BOLL'：布林带
-            - 'BIAS'：乖离率
-            - 'RSI'：相对强弱指标
-        frequency (str): 数据频率，默认'daily'，可选：
-            - 'daily'、'weekly'、'monthly'、'1min'、'5min'、'15min'、'30min'、'60min'
-    
-    返回值:
-        str: markdown格式的ECharts配置，包含：
-            - ```echarts代码块
-            - 完整的ECharts配置JSON
-            - 支持K线图和技术指标显示
-    
-    使用示例:
-        # 生成平安银行1年日线ECharts markdown
-        result = await get_ashare_echarts_markdown("000001", "1年", "MA,MACD", "daily")
-        
-        # 生成招商银行6个月周线ECharts markdown
-        result = await get_ashare_echarts_markdown("600036", "6个月", "MA,MACD,KDJ,BOLL,RSI", "weekly")
-        
-        # 生成创业板股票1个月5分钟ECharts markdown
-        result = await get_ashare_echarts_markdown("300001", "1个月", "MA,MACD", "5min")
-    """
-    try:
-        markdown_result = await run_in_threadpool(echarts_markdown_run, symbol=symbol, period=period, indicators=indicators, frequency=frequency)
-        return markdown_result
-    except Exception as e:
-        logger.error(f"Error generating ECharts markdown: {e}")
-        return f"生成ECharts markdown失败: {str(e)}"
 
 @mcp.tool()
 async def chan_chart(symbol: str, period: str = '1年', frequency: str = 'daily') -> str:
@@ -546,41 +635,6 @@ async def chan_chart(symbol: str, period: str = '1年', frequency: str = 'daily'
         logger.error(f"Error generating chan chart: {e}")
         return f"生成缠论图表失败: {str(e)}"
 
-def echarts_markdown_run(symbol: str, period: str = '1年', indicators: str = 'MA,MACD,KDJ,BOLL,BIAS', frequency: str = 'daily') -> str:
-    """生成ECharts markdown格式的核心函数"""
-    try:
-        # 获取股票数据
-        data_fetcher = StockDataFetcher()
-        stock_data = data_fetcher.fetch_stock_data(symbol, period, frequency)
-        
-        if stock_data.empty:
-            return "无法获取股票数据，请检查股票代码是否正确"
-        
-        # 计算技术指标
-        technical_analyzer = TechnicalAnalyzer()
-        indicators_data = technical_analyzer.calculate_indicators(stock_data)
-        
-        # 解析用户指定的指标
-        requested_indicators = [ind.strip().upper() for ind in indicators.split(',')]
-        
-        # 生成ECharts配置
-        visualizer = Visualizer()
-        echarts_config = visualizer.create_echarts_config(
-            stock_data, 
-            indicators_data, 
-            symbol, 
-            requested_indicators,
-            frequency
-        )
-        
-        # 格式化为markdown
-        markdown_content = f"```echarts\n{json.dumps(echarts_config, ensure_ascii=False, indent=2)}\n```"
-        
-        return markdown_content
-        
-    except Exception as e:
-        logger.error(f"Error in echarts_markdown_run: {e}")
-        return f"生成ECharts markdown失败: {str(e)}"
 
 def chan_chart_run(symbol: str, period: str = '1年', frequency: str = 'daily') -> str:
     """生成缠论分析图表的核心函数"""

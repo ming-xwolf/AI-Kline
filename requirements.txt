@@ -16,3 +16,5 @@ fastmcp>=2.12.5
 seaborn>=0.11.0
 plotly>=5.0.0
 Pillow>=8.0.0
+# 图片生成依赖
+selenium>=4.24.0
