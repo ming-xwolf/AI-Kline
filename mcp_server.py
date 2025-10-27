@@ -41,7 +41,7 @@ AI-Kline MCP服务器提供专业的A股股票分析工具集
 2. 行情数据获取 (get_ashare_quote) - 获取股票历史行情数据
 3. 新闻资讯获取 (get_ashare_news) - 获取股票相关新闻和公告
 4. 财务数据获取 (get_ashare_financial) - 获取公司财务指标和基本面数据
-5. HTML图表URL获取 (get_ashare_echarts_html) - 生成并上传到MinIO，返回URL
+5. K线图HTML生成 (generate_finance_candlestick_html_chart) - 生成交互式K线图并上传到MinIO
 6. 图片格式图表生成 (get_ashare_chart_image) - 生成PNG/SVG格式的图表图片
 7. 缠论技术分析 (chan_analysis) - 基于缠论理论的走势分析
 8. 缠论图表生成 (chan_chart) - 生成缠论分析可视化图表
@@ -266,15 +266,21 @@ async def get_ashare_financial(symbol: str
         return f"Failed to analyze stock pattern: {str(e)}"
 
 @mcp.tool()
-async def get_ashare_echarts_html(symbol: str, period: str = '1年', indicators: str = 'MA,MACD,KDJ,BOLL,BIAS', frequency: str = 'daily') -> str:
+async def generate_finance_candlestick_html_chart(symbol: str, period: str = '1年', indicators: str = 'MA,MACD,KDJ,BOLL,BIAS', frequency: str = 'daily') -> str:
     """
-    生成A股股票的HTML ECharts图表并返回MinIO URL
+    生成金融K线图HTML图表
     
     功能特性:
-    - 生成A股股票的HTML ECharts图表
-    - 将HTML文件上传到MinIO对象存储
-    - 返回JSON格式的URL：{"url": "MinIO_URL"}
+    - 生成A股股票的HTML ECharts K线图表
+    - 支持多种技术指标叠加显示（MA, MACD, KDJ, RSI, BOLL, BIAS等）
+    - 将HTML文件上传到MinIO对象存储并返回可访问的URL
+    - 交互式图表，支持缩放、数据提示等
     - 需要配置MinIO，否则会返回错误提示
+    
+    适用场景:
+    - 生成交互式金融数据可视化图表
+    - 在Web应用中嵌入金融K线图
+    - 分享和保存金融分析图表
     
     参数说明:
         symbol (str): A股股票代码，支持主板、创业板、科创板股票
@@ -294,11 +300,17 @@ async def get_ashare_echarts_html(symbol: str, period: str = '1年', indicators:
         str: JSON格式字符串 {"url": "MinIO_URL"}
         
     使用示例:
-        # 生成平安银行1年日线图表URL
-        result = await get_ashare_echarts_html("000001", "1年", "MA,MACD", "daily")
+        # 生成平安银行1年日线K线图
+        result = await generate_finance_candlestick_html_chart("000001", "1年", "MA,MACD", "daily")
         
-        # 生成招商银行6个月周线图表URL
-        result = await get_ashare_echarts_html("600036", "6个月", "MA,MACD,KDJ,BOLL,RSI", "weekly")
+        # 生成招商银行6个月周线K线图
+        result = await generate_finance_candlestick_html_chart("600036", "6个月", "MA,MACD,KDJ,BOLL,RSI", "weekly")
+        
+        # 解析返回的JSON
+        import json
+        data = json.loads(result)
+        if "url" in data:
+            print(f"图表URL: {data['url']}")
     """
     try:
         # 检查 MinIO 配置
