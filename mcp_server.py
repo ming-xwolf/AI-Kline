@@ -348,7 +348,7 @@ async def generate_candlestick_html_chart(symbol: str, period: str = '1年', ind
         }, ensure_ascii=False)
 
 @mcp.tool()
-async def generate_candlestick_image_chart(symbol: str, period: str = '1年', indicators: str = 'MA,MACD,KDJ,BOLL', frequency: str = 'daily', width: int = 800, height: int = 600, output_type: str = 'png'):
+async def generate_candlestick_image_chart(symbol: str, period: str = '1年', indicators: str = 'MA,MACD,KDJ,BOLL', frequency: str = 'daily', width: int = 800, height: int = 600, output_type: str = 'png', upload_to_minio: bool = True) -> str:
     """
     生成K线图图片格式图表
     
@@ -356,11 +356,13 @@ async def generate_candlestick_image_chart(symbol: str, period: str = '1年', in
     - 生成A股股票的PNG/SVG图片格式K线图表
     - 支持多种技术指标叠加显示（MA, MACD, KDJ, RSI, BOLL, BIAS等）
     - 图片以Base64格式返回，可直接在聊天界面显示
+    - 如果启用 MinIO 上传，将图片上传到 MinIO 并返回 URL
     - 支持自定义图片尺寸和质量
     - 自动保存图片到本地 output/charts 目录
     
     适用场景:
-    - 需要直接在聊天界面显示图表
+    - 需要直接在聊天界面显示图表（Base64）
+    - 需要分享和访问图片（MinIO URL）
     - 生成报告和文档中的图表
     - 移动端和离线查看图表
     - 自定义图表尺寸和格式
@@ -381,12 +383,16 @@ async def generate_candlestick_image_chart(symbol: str, period: str = '1年', in
         output_type (str): 输出格式，默认'png'，可选：
             - 'png'：PNG图片格式
             - 'svg'：SVG矢量图格式
+        upload_to_minio (bool): 是否上传到MinIO，默认True
     
     返回值:
-        ImageContent: MCP ImageContent对象，包含base64编码的图片数据
-            - type: "image"
-            - data: base64编码的图片数据
-            - mimeType: 图片MIME类型（image/png 或 image/svg+xml）
+        如果 upload_to_minio=True 且 MinIO 已配置:
+            str: JSON格式字符串 {"url": "MinIO_URL"}
+        否则:
+            ImageContent: MCP ImageContent对象，包含base64编码的图片数据
+                - type: "image"
+                - data: base64编码的图片数据
+                - mimeType: 图片MIME类型（image/png 或 image/svg+xml）
 
     
     使用示例:
@@ -415,6 +421,24 @@ async def generate_candlestick_image_chart(symbol: str, period: str = '1年', in
             # PNG: 已经是 base64
             mime_type = "image/png"
             base64_data = chart_data
+        
+        # 如果启用了 MinIO 上传且已配置，尝试上传到 MinIO
+        if upload_to_minio and minio_storage_manager.is_configured():
+            try:
+                # 对于 SVG，需要先编码为 base64
+                if output_type == "svg":
+                    import base64
+                    svg_base64 = base64.b64encode(chart_data.encode('utf-8')).decode('utf-8')
+                    url = minio_storage_manager.upload_image_sync(svg_base64, f"{symbol}_chart_{output_type}", mime_type, timeout=30)
+                else:
+                    url = minio_storage_manager.upload_image_sync(base64_data, f"{symbol}_chart_{output_type}", mime_type, timeout=30)
+                
+                if url:
+                    logger.info(f"图片已上传到 MinIO: {url}")
+                    # 返回 JSON 格式
+                    return json.dumps({"url": url}, ensure_ascii=False)
+            except Exception as minio_error:
+                logger.warning(f"MinIO 上传失败，返回 base64 内容: {minio_error}")
         
         # 尝试使用 MCP ImageContent 类型
         if MCP_IMAGE_AVAILABLE and ImageContent is not None:
