@@ -534,16 +534,8 @@ class Visualizer:
     
     def _add_charts_to_grid(self, grid, overlap_kline, dates, indicators, requested_indicators, xaxis_range):
         """添加图表到网格布局"""
-        # 计算子图高度
-        subplot_count = 1  # K线图
-        if 'MACD' in requested_indicators:
-            subplot_count += 1
-        if 'KDJ' in requested_indicators:
-            subplot_count += 1
-        if 'RSI' in requested_indicators:
-            subplot_count += 1
-        if 'BIAS' in requested_indicators:
-            subplot_count += 1
+        # 计算子图数量
+        subplot_count = self._calculate_subplot_count(requested_indicators)
         
         # 添加K线图到网格
         grid.add(overlap_kline, grid_opts=opts.GridOpts(
@@ -558,45 +550,22 @@ class Visualizer:
         # 添加MACD图
         if 'MACD' in requested_indicators and 'MACD' in indicators:
             macd_chart = self._create_macd_chart(dates, indicators, xaxis_range)
-            grid.add(macd_chart, grid_opts=opts.GridOpts(
-                pos_left="8%", 
-                pos_right="5%", 
-                pos_top=f"{current_top}%",
-                height=f"{80/subplot_count}%"
-            ))
-            current_top += 80/subplot_count + 5  # 增加5%的间距
+            current_top = self._add_indicator_to_grid(grid, macd_chart, current_top, subplot_count)
         
         # 添加KDJ图
         if 'KDJ' in requested_indicators and 'K' in indicators:
             kdj_chart = self._create_kdj_chart(dates, indicators, xaxis_range)
-            grid.add(kdj_chart, grid_opts=opts.GridOpts(
-                pos_left="8%", 
-                pos_right="5%", 
-                pos_top=f"{current_top}%",
-                height=f"{80/subplot_count}%"
-            ))
-            current_top += 80/subplot_count + 5  # 增加5%的间距
+            current_top = self._add_indicator_to_grid(grid, kdj_chart, current_top, subplot_count)
         
         # 添加RSI图
         if 'RSI' in requested_indicators and 'RSI6' in indicators:
             rsi_chart = self._create_rsi_chart(dates, indicators, xaxis_range)
-            grid.add(rsi_chart, grid_opts=opts.GridOpts(
-                pos_left="8%", 
-                pos_right="5%", 
-                pos_top=f"{current_top}%",
-                height=f"{80/subplot_count}%"
-            ))
-            current_top += 80/subplot_count + 5  # 增加5%的间距
+            current_top = self._add_indicator_to_grid(grid, rsi_chart, current_top, subplot_count)
         
         # 添加BIAS图
         if 'BIAS' in requested_indicators and 'BIAS6' in indicators:
             bias_chart = self._create_bias_chart(dates, indicators, xaxis_range)
-            grid.add(bias_chart, grid_opts=opts.GridOpts(
-                pos_left="8%", 
-                pos_right="5%", 
-                pos_top=f"{current_top}%",
-                height=f"{80/subplot_count}%"
-            ))
+            current_top = self._add_indicator_to_grid(grid, bias_chart, current_top, subplot_count)
         
         return subplot_count
     
@@ -612,6 +581,16 @@ class Visualizer:
         if 'BIAS' in requested_indicators:
             subplot_count += 1
         return subplot_count
+    
+    def _add_indicator_to_grid(self, grid, chart, current_top, subplot_count):
+        """将技术指标图表添加到网格并返回新的top位置"""
+        grid.add(chart, grid_opts=opts.GridOpts(
+            pos_left="8%", 
+            pos_right="5%", 
+            pos_top=f"{current_top}%",
+            height=f"{80/subplot_count}%"
+        ))
+        return current_top + 80/subplot_count + 5  # 返回新的top位置
     
     def _create_macd_chart(self, dates, indicators, xaxis_range):
         """创建MACD图表"""
