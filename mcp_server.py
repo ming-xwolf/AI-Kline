@@ -348,7 +348,7 @@ async def generate_candlestick_html_chart(symbol: str, period: str = '1年', ind
         }, ensure_ascii=False)
 
 @mcp.tool()
-async def generate_candlestick_image_chart(symbol: str, period: str = '1年', indicators: str = 'MA,MACD,KDJ,BOLL', frequency: str = 'daily', width: int = 800, height: int = 600, output_type: str = 'png', upload_to_minio: bool = True) -> str:
+async def generate_candlestick_image_chart(symbol: str, period: str = '1年', indicators: str = 'MA,MACD,KDJ,BOLL', frequency: str = 'daily', width: int = 800, height: int = 600, output_type: str = 'png', upload_to_minio: bool = True):
     """
     生成K线图图片格式图表
     
@@ -389,10 +389,9 @@ async def generate_candlestick_image_chart(symbol: str, period: str = '1年', in
         如果 upload_to_minio=True 且 MinIO 已配置:
             str: JSON格式字符串 {"url": "MinIO_URL"}
         否则:
-            ImageContent: MCP ImageContent对象，包含base64编码的图片数据
-                - type: "image"
-                - data: base64编码的图片数据
-                - mimeType: 图片MIME类型（image/png 或 image/svg+xml）
+            ImageContent 或 List: 
+                - ImageContent (MCP 类型): type="image", data=base64数据, mimeType=图片类型
+                - List (回退格式): [{"type": "image", "data": base64, "mimeType": 类型}]
 
     
     使用示例:
