@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  # AI-Kline MCP 服务（开发模式）
+  ai-kline:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ai-kline-mcp-dev
+    ports:
+      - "20020:8000"
+    environment:
+      - MCP_HOST=0.0.0.0
+      - MCP_PORT=8000
+      - MPLBACKEND=Agg
+      - PYTHONPATH=/app
+      - DEBUG=true
+      - LOG_LEVEL=DEBUG
+      # MinIO 配置
+      - MINIO_ENDPOINT=minio
+      - MINIO_PORT=9000
+      - MINIO_USE_SSL=false
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin
+      - MINIO_BUCKET_NAME=ai-kline-charts
+      # AI 模型配置
+      - AI_KLINE_API_KEY=${AI_KLINE_API_KEY}
+      - AI_KLINE_BASE_URL=${AI_KLINE_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}
+      - AI_KLINE_MODEL_NAME=${AI_KLINE_MODEL_NAME:-qwen-vl-max}
+    volumes:
+      - .:/app  # 挂载源代码进行热重载
+      - ./output:/app/output
+      - ./logs:/app/logs
+    depends_on:
+      - minio
+    networks:
+      - ai-kline-network
+    restart: unless-stopped
+    command: ["python", "-u", "mcp_server.py"]  # 使用 -u 参数确保输出不被缓冲
+
+  # MinIO 对象存储（开发模式）
+  minio:
+    image: minio/minio:latest
+    container_name: ai-kline-minio-dev
+    ports:
+      - "20021:9000"
+      - "20022:9001"
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+      - MINIO_BROWSER_REDIRECT_URL=http://localhost:20022
+    volumes:
+      - minio-data-dev:/data
+    command: server /data --console-address ":9001"
+    networks:
+      - ai-kline-network
+    restart: unless-stopped
+
+volumes:
+  minio-data-dev:
+    driver: local
+
+networks:
+  ai-kline-network:
+    driver: bridge
+

@@ -15,6 +15,7 @@ from modules.chan_analyzer import ChanAnalyzer
 from modules.chan_analysis_engine import ChanAnalysisEngine
 from modules.chan_visualizer import ChanVisualizer
 from modules.image_generator import ImageGenerator
+from modules.minio_storage import minio_storage_manager, is_minio_configured
 
 # 尝试导入 MCP ImageContent 类型
 try:
@@ -40,7 +41,7 @@ AI-Kline MCP服务器提供专业的A股股票分析工具集
 2. 行情数据获取 (get_ashare_quote) - 获取股票历史行情数据
 3. 新闻资讯获取 (get_ashare_news) - 获取股票相关新闻和公告
 4. 财务数据获取 (get_ashare_financial) - 获取公司财务指标和基本面数据
-5. 交互式图表生成 (get_ashare_echarts) - 生成ECharts交互式图表
+5. HTML图表URL获取 (get_ashare_echarts_html) - 生成并上传到MinIO，返回URL
 6. 图片格式图表生成 (get_ashare_chart_image) - 生成PNG/SVG格式的图表图片
 7. 缠论技术分析 (chan_analysis) - 基于缠论理论的走势分析
 8. 缠论图表生成 (chan_chart) - 生成缠论分析可视化图表
@@ -264,14 +265,17 @@ async def get_ashare_financial(symbol: str
         logger.error(f"Error analyzing stock pattern: {e}")
         return f"Failed to analyze stock pattern: {str(e)}"
 
-# @mcp.tool()
-async def get_ashare_echarts(symbol: str, period: str = '1年', indicators: str = 'MA,MACD,KDJ,BOLL,BIAS', frequency: str = 'daily') -> str:
+@mcp.tool()
+async def get_ashare_echarts_html(symbol: str, period: str = '1年', indicators: str = 'MA,MACD,KDJ,BOLL,BIAS', frequency: str = 'daily') -> str:
     """
-    生成A股股票的html echarts 图表
+    生成A股股票的HTML ECharts图表并返回MinIO URL
     
     功能特性:
-    - 生成A股股票的html echarts 图表内容
-
+    - 生成A股股票的HTML ECharts图表
+    - 将HTML文件上传到MinIO对象存储
+    - 返回JSON格式的URL：{"url": "MinIO_URL"}
+    - 需要配置MinIO，否则会返回错误提示
+    
     参数说明:
         symbol (str): A股股票代码，支持主板、创业板、科创板股票
         period (str): 分析周期，默认'1年'，可选：
@@ -287,25 +291,49 @@ async def get_ashare_echarts(symbol: str, period: str = '1年', indicators: str 
             - 'daily'、'weekly'、'monthly'、'1min'、'5min'、'15min'、'30min'、'60min'
     
     返回值:
-        str: 包含以下信息：
-            - K线图和指标图的HTML内容
-    
+        str: JSON格式字符串 {"url": "MinIO_URL"}
+        
     使用示例:
-        # 生成平安银行1年日线图表，包含MA和MACD指标
-        result = await get_ashare_echarts("000001", "1年", "MA,MACD", "daily")
+        # 生成平安银行1年日线图表URL
+        result = await get_ashare_echarts_html("000001", "1年", "MA,MACD", "daily")
         
-        # 生成招商银行6个月周线图表，包含所有技术指标
-        result = await get_ashare_echarts("600036", "6个月", "MA,MACD,KDJ,BOLL,RSI", "weekly")
-        
-        # 生成创业板股票1个月5分钟图表
-        result = await get_ashare_echarts("300001", "1个月", "MA,MACD", "5min")
+        # 生成招商银行6个月周线图表URL
+        result = await get_ashare_echarts_html("600036", "6个月", "MA,MACD,KDJ,BOLL,RSI", "weekly")
     """
     try:
-        analysis_result = await run_in_threadpool(echarts_run, symbol=symbol, period=period, indicators=indicators, frequency=frequency)
-        return analysis_result
+        # 检查 MinIO 配置
+        if not minio_storage_manager.is_configured():
+            return json.dumps({
+                "error": "MinIO not configured",
+                "message": "请先配置 MinIO"
+            }, ensure_ascii=False)
+        
+        # 使用 use_minio=True 强制上传到 MinIO
+        result = await run_in_threadpool(echarts_run, symbol=symbol, period=period, indicators=indicators, frequency=frequency, use_minio=True)
+        
+        # 解析结果
+        try:
+            data = json.loads(result)
+            if "url" in data:
+                return result  # 返回 JSON 格式
+            else:
+                return json.dumps({
+                    "error": "upload failed",
+                    "message": "MinIO upload failed, returned HTML content instead"
+                }, ensure_ascii=False)
+        except json.JSONDecodeError:
+            # 如果返回的是 HTML 内容而不是 JSON，说明上传失败
+            return json.dumps({
+                "error": "upload failed",
+                "message": "MinIO upload failed, please check configuration"
+            }, ensure_ascii=False)
+            
     except Exception as e:
-        logger.error(f"Error generating ECharts HTML: {e}")
-        return f"生成ECharts HTML失败: {str(e)}"
+        logger.error(f"Error generating ECharts HTML URL: {e}")
+        return json.dumps({
+            "error": "generation failed",
+            "message": str(e)
+        }, ensure_ascii=False)
 
 @mcp.tool()
 async def get_ashare_chart_image(symbol: str, period: str = '1年', indicators: str = 'MA,MACD,KDJ,BOLL', frequency: str = 'daily', width: int = 800, height: int = 600, output_type: str = 'png'):
@@ -397,8 +425,19 @@ async def run_in_threadpool(func, *args, **kwargs):
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, lambda: func(*args, **kwargs))
 
-def echarts_run(symbol: str, period: str = '1年', indicators: str = 'MA,MACD,KDJ,BOLL', frequency: str = 'daily') -> str:
-    """生成ECharts HTML的核心函数"""
+def echarts_run(symbol: str, period: str = '1年', indicators: str = 'MA,MACD,KDJ,BOLL', frequency: str = 'daily', use_minio: bool = True) -> str:
+    """生成ECharts HTML的核心函数，支持 MinIO 存储
+    
+    Args:
+        symbol: 股票代码
+        period: 分析周期
+        indicators: 技术指标
+        frequency: 数据频率
+        use_minio: 是否尝试使用 MinIO 存储
+    
+    Returns:
+        str: 如果 MinIO 可用返回 URL，否则返回 HTML 内容
+    """
     try:
         # 使用与ashare_analysis相同的保存路径
         save_path = './output'
@@ -417,7 +456,7 @@ def echarts_run(symbol: str, period: str = '1年', indicators: str = 'MA,MACD,KD
         # 解析用户指定的指标
         requested_indicators = [ind.strip().upper() for ind in indicators.split(',')]
         
-        # 生成ECharts HTML并保存
+        # 生成ECharts HTML
         visualizer = Visualizer()
         html_content = visualizer.create_echarts_html(
             stock_data, 
@@ -428,7 +467,22 @@ def echarts_run(symbol: str, period: str = '1年', indicators: str = 'MA,MACD,KD
             frequency
         )
         
-        return f"```html\n{html_content}\n```"
+        # 如果启用了 MinIO 且已配置，尝试上传到 MinIO
+        if use_minio and minio_storage_manager.is_configured():
+            try:
+                # 使用工具类的同步方法上传
+                url = minio_storage_manager.upload_html_sync(html_content, f"{symbol}_chart", timeout=30)
+                
+                if url:
+                    logger.info(f"HTML 图表已上传到 MinIO: {url}")
+                    # 返回 JSON 格式
+                    return json.dumps({"url": url}, ensure_ascii=False)
+                    
+            except Exception as minio_error:
+                logger.warning(f"MinIO 上传失败，返回 HTML 内容: {minio_error}")
+        
+        # 如果没有 MinIO 或上传失败，返回错误信息
+        return f"请配置 MinIO 后重试"
         
     except Exception as e:
         logger.error(f"Error in echarts_run: {e}")

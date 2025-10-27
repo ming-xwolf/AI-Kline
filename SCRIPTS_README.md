@@ -58,6 +58,35 @@
 - 检查输出目录和日志目录
 - 显示最新日志文件信息
 
+#### `start_minio.sh` - 启动 MinIO 服务
+```bash
+./start_minio.sh
+```
+- 启动 MinIO 对象存储服务（后台运行）
+- MinIO API 端点: http://localhost:9000
+- MinIO 控制台: http://localhost:9001
+- 默认凭证: minioadmin / minioadmin
+- 数据目录: `~/minio-data`
+- 日志保存到 `./logs/minio_YYYYMMDD_HHMMSS.log`
+- PID 保存到 `./logs/minio.pid`
+
+#### `stop_minio.sh` - 停止 MinIO 服务
+```bash
+./stop_minio.sh
+```
+- 停止 MinIO 服务
+- 清理相关进程
+- 释放端口资源
+
+#### `check_minio.sh` - 检查 MinIO 服务状态
+```bash
+./check_minio.sh
+```
+- 检查 MinIO 运行状态
+- 检查端口占用情况
+- 显示 MinIO 数据目录信息
+- 检查 .env 配置
+
 #### `view_logs.sh` - 查看日志
 ```bash
 ./view_logs.sh [service] [lines]
@@ -89,9 +118,16 @@
    ./start_web.sh    # 终端2
    ```
 
-3. **访问应用**：
+3. **启动 MinIO**（可选，用于 HTML 图表存储）：
+   ```bash
+   ./start_minio.sh
+   ```
+   然后在 `.env` 文件中配置 MinIO 连接信息
+
+4. **访问应用**：
    - Web 界面: http://localhost:5000
    - MCP 服务: 通过 MCP 客户端连接
+   - MinIO 控制台: http://localhost:9001（如果已启动）
 
 ### 日常使用
 
@@ -166,7 +202,8 @@ pip install -r requirements.txt
 ### 日志文件位置
 - Web 应用日志: `./logs/web_app_YYYYMMDD_HHMMSS.log`
 - MCP 服务日志: `./logs/mcp_server_YYYYMMDD_HHMMSS.log`
-- PID 文件: `./logs/web_app.pid`、`./logs/mcp_server.pid`
+- MinIO 服务日志: `./logs/minio_YYYYMMDD_HHMMSS.log`
+- PID 文件: `./logs/web_app.pid`、`./logs/mcp_server.pid`、`./logs/minio.pid`
 
 ### 常用日志操作
 ```bash
