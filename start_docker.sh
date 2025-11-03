@@ -52,8 +52,9 @@ if [ -f ".env" ]; then
     fi
 fi
 
-# 确定要启动的服务
+# 确定要启动的服务和构建选项
 PROFILE=""
+USE_CACHE=""
 if [ "$1" = "web" ]; then
     PROFILE="--profile web"
     echo -e "${BLUE}启动模式: 包含 Web 应用${NC}"
@@ -65,9 +66,22 @@ elif [ "$1" = "dev" ]; then
     echo -e "${YELLOW}启动开发环境...${NC}"
     docker-compose -f docker-compose.dev.yml up -d
     exit 0
+elif [ "$1" = "quick" ]; then
+    # 快速启动模式：使用缓存构建
+    PROFILE=""
+    USE_CACHE="true"
+    echo -e "${BLUE}启动模式: 基础服务 (MCP + MinIO) - 快速模式（使用缓存）${NC}"
+    shift
 else
     PROFILE=""
     echo -e "${BLUE}启动模式: 基础服务 (MCP + MinIO)${NC}"
+fi
+
+# 确定构建选项（默认使用 --no-cache 确保包含最新代码）
+if [ "$USE_CACHE" = "true" ]; then
+    NO_CACHE=""
+else
+    NO_CACHE="--no-cache"
 fi
 
 # 检查是否已有容器在运行
@@ -82,11 +96,21 @@ fi
 
 # 启动服务
 echo -e "${GREEN}正在启动 Docker Compose 服务...${NC}"
+
+# 重新构建镜像以确保包含最新代码
+if [ "$NO_CACHE" = "--no-cache" ]; then
+    echo -e "${YELLOW}重新构建 Docker 镜像（包含最新代码改动，无缓存）...${NC}"
+else
+    echo -e "${YELLOW}重新构建 Docker 镜像（使用缓存）...${NC}"
+fi
+
 if [ -n "$PROFILE" ]; then
     echo -e "${YELLOW}使用 profiles: $PROFILE${NC}"
-    docker-compose $PROFILE up -d --build
+    docker-compose $PROFILE build $NO_CACHE
+    docker-compose $PROFILE up -d
 else
-    docker-compose up -d --build
+    docker-compose build $NO_CACHE
+    docker-compose up -d
 fi
 
 # 等待服务启动
@@ -119,6 +143,11 @@ echo -e "${YELLOW}查看日志:${NC}     docker-compose logs -f"
 echo -e "${YELLOW}停止服务:${NC}     ./stop_docker.sh"
 echo -e "${YELLOW}重启服务:${NC}     ./restart_docker.sh"
 echo -e "${YELLOW}查看状态:${NC}     ./status_docker.sh"
+echo ""
+echo -e "${GREEN}=== 启动选项 ===${NC}"
+echo -e "${YELLOW}快速启动:${NC}     ./start_docker.sh quick (使用缓存)"
+echo -e "${YELLOW}包含Web:${NC}      ./start_docker.sh web"
+echo -e "${YELLOW}包含Nginx:${NC}    ./start_docker.sh nginx"
 
 echo ""
 echo -e "${GREEN}服务已成功启动！${NC}"

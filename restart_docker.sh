@@ -19,17 +19,30 @@ if [ ! -f "docker-compose.yml" ]; then
 fi
 
 # 停止服务
-echo -e "${YELLOW}步骤 1/2: 停止现有服务...${NC}"
+echo -e "${YELLOW}步骤 1/3: 停止现有服务...${NC}"
 docker-compose down
 
-# 启动服务
-echo -e "${YELLOW}步骤 2/2: 启动服务...${NC}"
+# 强制重新构建镜像以确保包含最新代码
+echo -e "${YELLOW}步骤 2/3: 重新构建 Docker 镜像（包含最新代码改动，无缓存）...${NC}"
 if [ "$1" = "web" ]; then
-    docker-compose --profile web up -d --build
+    docker-compose --profile web build --no-cache
 elif [ "$1" = "nginx" ]; then
-    docker-compose --profile web --profile nginx up -d --build
+    docker-compose --profile web --profile nginx build --no-cache
+elif [ "$1" = "quick" ]; then
+    echo -e "${YELLOW}快速模式：使用缓存构建${NC}"
+    docker-compose build
 else
-    docker-compose up -d --build
+    docker-compose build --no-cache
+fi
+
+# 启动服务
+echo -e "${YELLOW}步骤 3/3: 启动服务...${NC}"
+if [ "$1" = "web" ]; then
+    docker-compose --profile web up -d
+elif [ "$1" = "nginx" ]; then
+    docker-compose --profile web --profile nginx up -d
+else
+    docker-compose up -d
 fi
 
 # 等待服务启动

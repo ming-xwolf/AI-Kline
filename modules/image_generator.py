@@ -144,7 +144,7 @@ class ImageGenerator:
             from selenium.webdriver.support import expected_conditions as EC
             import time
             
-            # 创建Chrome选项
+            # 创建Chrome选项 - 优化启动速度和稳定性
             chrome_options = Options()
             chrome_options.add_argument("--headless=new")  # 使用新的 headless 模式
             chrome_options.add_argument("--no-sandbox")
@@ -155,6 +155,22 @@ class ImageGenerator:
             chrome_options.add_argument("--disable-software-rasterizer")
             chrome_options.add_argument("--disable-web-security")
             chrome_options.add_argument("--allow-running-insecure-content")
+            # 优化性能，减少启动时间
+            chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+            chrome_options.add_argument("--disable-background-networking")
+            chrome_options.add_argument("--disable-background-timer-throttling")
+            chrome_options.add_argument("--disable-client-side-phishing-detection")
+            chrome_options.add_argument("--disable-default-apps")
+            chrome_options.add_argument("--disable-hang-monitor")
+            chrome_options.add_argument("--disable-popup-blocking")
+            chrome_options.add_argument("--disable-prompt-on-repost")
+            chrome_options.add_argument("--disable-sync")
+            chrome_options.add_argument("--metrics-recording-only")
+            chrome_options.add_argument("--no-first-run")
+            chrome_options.add_argument("--safebrowsing-disable-auto-update")
+            chrome_options.add_argument("--enable-automation")
+            chrome_options.add_argument("--password-store=basic")
+            chrome_options.add_argument("--use-mock-keychain")
             
             # 检测Chrome二进制位置（支持ARM64和AMD64）
             chrome_binaries = ["/usr/bin/google-chrome", "/usr/bin/chromium", "/usr/bin/chromium-browser"]
@@ -192,22 +208,48 @@ class ImageGenerator:
                         chromedriver_path = path
                         break
                 
+                logger.info(f"正在启动Chrome浏览器...")
                 if chromedriver_path:
+                    logger.info(f"使用ChromeDriver路径: {chromedriver_path}")
                     service = Service(chromedriver_path)
                     driver = webdriver.Chrome(service=service, options=chrome_options)
                 else:
                     # 如果没有找到chromedriver，尝试自动查找
+                    logger.warning("未找到ChromeDriver，尝试自动查找...")
                     driver = webdriver.Chrome(options=chrome_options)
                 
+                logger.info("Chrome浏览器启动成功")
+                
+                logger.info(f"正在加载HTML页面: {temp_html_path}")
                 driver.get(f"file://{temp_html_path}")
                 
-                # 等待图表渲染完成
-                WebDriverWait(driver, 10).until(
+                # 等待图表容器出现 - 增加超时时间到30秒
+                logger.info("等待图表容器加载...")
+                WebDriverWait(driver, 30).until(
                     EC.presence_of_element_located((By.ID, "chart"))
                 )
                 
-                # 等待额外时间确保图表完全渲染
-                time.sleep(2)
+                # 等待额外时间确保图表完全渲染 - 增加等待时间到5秒
+                # 对于复杂的多指标图表，需要更多时间
+                logger.info("等待图表完全渲染...")
+                time.sleep(5)
+                
+                # 检查图表是否真正渲染完成（检查ECharts实例）
+                logger.info("检查图表渲染状态...")
+                chart_ready = driver.execute_script("""
+                    var chartDiv = document.getElementById('chart');
+                    if (!chartDiv) return false;
+                    // 检查是否有ECharts实例
+                    var chartInstance = echarts.getInstanceByDom(chartDiv);
+                    if (!chartInstance) return false;
+                    // 检查图表是否有数据
+                    var option = chartInstance.getOption();
+                    return option && option.series && option.series.length > 0;
+                """)
+                
+                if not chart_ready:
+                    logger.warning("图表可能未完全渲染，继续等待...")
+                    time.sleep(3)
                 
                 if output_format == "svg":
                     # 获取SVG内容 - 使用JavaScript提取纯SVG
@@ -222,13 +264,23 @@ class ImageGenerator:
                         svg_content = svg_element.get_attribute("outerHTML")
                     return svg_content
                 else:
-                    # 获取PNG base64 - 等待Canvas元素出现
-                    WebDriverWait(driver, 10).until(
+                    # 获取PNG base64 - 等待Canvas元素出现，增加超时时间到30秒
+                    logger.info("等待Canvas元素渲染...")
+                    WebDriverWait(driver, 30).until(
                         EC.presence_of_element_located((By.ID, "echarts-canvas"))
                     )
                     
+                    # 额外等待确保Canvas内容已绘制
+                    time.sleep(2)
+                    
+                    logger.info("提取Canvas图片数据...")
                     canvas_element = driver.find_element(By.ID, "echarts-canvas")
                     canvas_base64 = driver.execute_script("return arguments[0].toDataURL('image/png').split(',')[1];", canvas_element)
+                    
+                    if not canvas_base64 or len(canvas_base64) < 100:
+                        raise Exception("Canvas数据提取失败或数据为空")
+                    
+                    logger.info(f"成功提取Canvas数据，大小: {len(canvas_base64)} 字符")
                     return canvas_base64
                     
             finally:
