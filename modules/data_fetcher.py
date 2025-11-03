@@ -592,3 +592,174 @@ class StockDataFetcher:
             print(error_msg)
             basic_info['错误信息'] = error_msg
             return basic_info
+    
+    def fetch_shareholder_info(self, stock_code):
+        """
+        获取个股股东信息（前十大股东和前十大流通股东）
+        
+        参数:
+            stock_code (str): 股票代码，如 '000001'
+            
+        返回:
+            dict: 包含股东信息的字典，包括：
+                - 股票代码、股票名称
+                - 前十大股东列表（主要股东，通常为前5个，包含持股数量、持股比例等）
+                - 前十大流通股东列表（流通股东，通常为前5个，包含持股数量、占流通股比例等）
+                - 股东总数、平均持股数等信息
+                
+        注意:
+            - 新浪财经数据源通常只提供前5个股东信息，不是前10个
+            - 主要股东数据包含：编号、股东名称、持股数量、持股比例、股本性质、截至日期、公告日期等
+            - 流通股东数据包含：编号、股东名称、持股数量、占流通股比例、股本性质、截止日期、公告日期等
+        """
+        shareholder_info = {
+            '股票代码': stock_code,
+            '股票名称': '',
+            '前十大股东': [],
+            '前十大流通股东': [],
+            '股东总数': '',
+            '平均持股数': '',
+            '备注': ''
+        }
+        
+        try:
+            # 确保股票代码格式正确
+            if not stock_code.isdigit():
+                stock_code = stock_code.lstrip('sz').lstrip('sh').rstrip('SZ').rstrip('SH')
+                stock_code = stock_code.rstrip('.sz').rstrip('.sh').rstrip('.SZ').rstrip('.SH')
+            
+            shareholder_info['股票代码'] = stock_code
+            
+            # 获取股票基本信息（获取股票名称）
+            try:
+                stock_info = ak.stock_individual_info_em(symbol=stock_code)
+                if not stock_info.empty:
+                    info_dict = stock_info.set_index('item').to_dict()['value']
+                    shareholder_info['股票名称'] = info_dict.get('股票简称', '')
+            except Exception as e:
+                print(f"获取股票名称时出错: {e}")
+            
+            # 获取主要股东信息（前5个）
+            try:
+                main_holders = ak.stock_main_stock_holder(stock=stock_code)
+                if main_holders is not None and not main_holders.empty:
+                    # 转换为字典列表格式
+                    holders_list = []
+                    for _, row in main_holders.iterrows():
+                        holder_dict = {}
+                        for col in main_holders.columns:
+                            value = row[col]
+                            # 处理 NaN 值
+                            if pd.notna(value):
+                                # 如果值是数字类型，转换为Python原生类型
+                                if pd.api.types.is_integer(value):
+                                    holder_dict[str(col)] = int(value)
+                                elif pd.api.types.is_float(value):
+                                    holder_dict[str(col)] = float(value)
+                                else:
+                                    holder_dict[str(col)] = str(value)
+                            else:
+                                holder_dict[str(col)] = None
+                        holders_list.append(holder_dict)
+                    shareholder_info['前十大股东'] = holders_list
+                    
+                    # 提取股东总数和平均持股数（如果存在）
+                    if holders_list:
+                        first_holder = holders_list[0]
+                        if '股东总数' in first_holder and first_holder['股东总数']:
+                            shareholder_info['股东总数'] = str(first_holder['股东总数'])
+                        if '平均持股数' in first_holder and first_holder['平均持股数']:
+                            shareholder_info['平均持股数'] = str(first_holder['平均持股数'])
+            except Exception as e:
+                print(f"获取主要股东信息时出错: {e}")
+                shareholder_info['备注'] += f"获取主要股东信息时出错: {str(e)}; "
+            
+            # 获取流通股东信息（前5个）
+            try:
+                circulate_holders = ak.stock_circulate_stock_holder(symbol=stock_code)
+                if circulate_holders is not None and not circulate_holders.empty:
+                    # 转换为字典列表格式
+                    floatholders_list = []
+                    for _, row in circulate_holders.iterrows():
+                        holder_dict = {}
+                        for col in circulate_holders.columns:
+                            value = row[col]
+                            # 处理 NaN 值
+                            if pd.notna(value):
+                                # 如果值是数字类型，转换为Python原生类型
+                                if pd.api.types.is_integer(value):
+                                    holder_dict[str(col)] = int(value)
+                                elif pd.api.types.is_float(value):
+                                    holder_dict[str(col)] = float(value)
+                                else:
+                                    holder_dict[str(col)] = str(value)
+                            else:
+                                holder_dict[str(col)] = None
+                        floatholders_list.append(holder_dict)
+                    shareholder_info['前十大流通股东'] = floatholders_list
+            except Exception as e:
+                print(f"获取流通股东信息时出错: {e}")
+                if shareholder_info['备注']:
+                    shareholder_info['备注'] += f"获取流通股东信息时出错: {str(e)}; "
+                else:
+                    shareholder_info['备注'] = f"获取流通股东信息时出错: {str(e)}; "
+            
+            return shareholder_info
+            
+        except Exception as e:
+            error_msg = f"获取股东信息时出错: {str(e)}"
+            print(error_msg)
+            shareholder_info['备注'] = error_msg
+            return shareholder_info
+    
+    def fetch_all_stock_list(self):
+        """
+        获取所有A股股票列表（包含股票代码和名称）
+        
+        参数:
+            无
+            
+        返回:
+            dict: 包含股票列表的字典，包括：
+                - 总数：股票总数
+                - 股票列表：包含股票代码和名称的列表
+                - 更新日期：数据获取日期
+                
+        注意:
+            - 返回所有沪深京A股股票（包括主板、创业板、科创板等）
+            - 数据来源于akshare的stock_info_a_code_name接口
+            - 返回的列表包含股票代码(code)和股票名称(name)
+        """
+        stock_list_info = {
+            '总数': 0,
+            '股票列表': [],
+            '更新日期': self.today,
+            '备注': ''
+        }
+        
+        try:
+            # 获取所有A股股票列表
+            stock_list = ak.stock_info_a_code_name()
+            
+            if stock_list is not None and not stock_list.empty:
+                # 转换为字典列表格式
+                stock_list_dict = []
+                for _, row in stock_list.iterrows():
+                    stock_item = {
+                        '代码': str(row['code']).zfill(6) if pd.notna(row['code']) else '',
+                        '名称': str(row['name']).strip() if pd.notna(row['name']) else ''
+                    }
+                    stock_list_dict.append(stock_item)
+                
+                stock_list_info['股票列表'] = stock_list_dict
+                stock_list_info['总数'] = len(stock_list_dict)
+            else:
+                stock_list_info['备注'] = "未获取到股票列表数据"
+            
+            return stock_list_info
+            
+        except Exception as e:
+            error_msg = f"获取股票列表时出错: {str(e)}"
+            print(error_msg)
+            stock_list_info['备注'] = error_msg
+            return stock_list_info

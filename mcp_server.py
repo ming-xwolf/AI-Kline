@@ -5,7 +5,6 @@ import json
 import logging
 from dotenv import load_dotenv
 
-from modules.data_fetcher import StockDataFetcher
 from modules.kline_utils import KlineUtils
 from modules.minio_storage import minio_storage_manager, is_minio_configured
 
@@ -35,10 +34,12 @@ AI-Kline MCP服务器提供专业的A股股票分析工具集
 4. 财务数据获取 (get_ashare_financial) - 获取公司财务指标和基本面数据
 5. 板块信息获取 (get_ashare_sector_info) - 获取个股所属行业板块和概念板块信息
 6. 基本信息获取 (get_ashare_basic_info) - 获取个股基本信息和实时行情数据
-7. K线图HTML生成 (generate_candlestick_html_chart) - 生成交互式K线图并上传到MinIO
-8. K线图图片生成 (generate_candlestick_image_chart) - 生成PNG/SVG格式的K线图图片
-9. 缠论技术分析 (chan_analysis) - 基于缠论理论的走势分析
-10. 缠论图表生成 (chan_chart) - 生成缠论分析可视化图表
+7. 股东信息获取 (get_ashare_shareholder_info) - 获取主要股东和流通股东信息
+8. 股票列表获取 (get_all_ashare_stocks) - 获取所有A股股票代码和名称列表
+9. K线图HTML生成 (generate_candlestick_html_chart) - 生成交互式K线图并上传到MinIO
+10. K线图图片生成 (generate_candlestick_image_chart) - 生成PNG/SVG格式的K线图图片
+11. 缠论技术分析 (chan_analysis) - 基于缠论理论的走势分析
+12. 缠论图表生成 (chan_chart) - 生成缠论分析可视化图表
 
 支持的股票类型:
 - 主板股票 (000001, 600036等)
@@ -66,6 +67,8 @@ AI-Kline MCP服务器提供专业的A股股票分析工具集
 - 技术指标可根据需要自由组合使用
 - 板块信息工具可用于了解股票的业务定位和概念分类
 - 基本信息工具可用于快速了解股票的实时行情和基本概况
+- 股东信息工具可用于分析公司股权结构和股东构成
+- 股票列表工具可用于获取所有A股股票代码和名称，便于股票筛选和查询
 """
 
 # Set up logging
@@ -75,7 +78,7 @@ logger = logging.getLogger(__name__)
 # 加载环境变量
 load_dotenv()
 
-# @mcp.tool()
+@mcp.tool()
 async def ashare_analysis(symbol: str, period: str = '1年', frequency: str = 'daily'
                                    ) -> str:
     """
@@ -180,24 +183,8 @@ async def get_ashare_quote(symbol: str, frequency: str = 'daily') -> str:
         data = await get_ashare_quote("300001", "5min")
     """
     try:
-        # 根据频率的默认周期计算开始日期和结束日期
-        start_date, end_date = KlineUtils.calculate_start_date_by_frequency(frequency)
-        
-        data_fetcher = StockDataFetcher()
-        # 使用 date_as_string=True 让数据获取时就返回字符串格式的日期
-        stock_data = data_fetcher.fetch_stock_data_by_date_range(symbol, start_date, end_date, frequency, date_as_string=True)
-        
-        if stock_data.empty:
-            return json.dumps({
-                "error": "数据获取失败",
-                "message": "无法获取股票数据，请检查股票代码是否正确"
-            }, ensure_ascii=False)
-        
-        # 将 DataFrame 转换为字典，然后转换为 JSON 字符串
-        # 日期已经是字符串格式，无需额外处理
-        analysis_result = stock_data.to_dict()
-        
-        return json.dumps(analysis_result, ensure_ascii=False, default=str)
+        result = await KlineUtils.run_in_threadpool(KlineUtils.get_quote_run, symbol=symbol, frequency=frequency)
+        return result
     except Exception as e:
         logger.error(f"Error getting stock quote: {e}")
         return json.dumps({
@@ -238,15 +225,14 @@ async def get_ashare_news(symbol: str
         news = await get_ashare_news("600036")
     """
     try:
-        financial_data = {}
-        data_fetcher = StockDataFetcher()
-        news_data = data_fetcher.fetch_news_data(symbol)
-        financial_data['news'] = news_data
-        analysis_result = json.dumps(financial_data, ensure_ascii=False, indent=2)
-        return analysis_result
+        result = await KlineUtils.run_in_threadpool(KlineUtils.get_news_run, symbol=symbol)
+        return result
     except Exception as e:
-        logger.error(f"Error analyzing stock pattern: {e}")
-        return f"Failed to analyze stock pattern: {str(e)}"
+        logger.error(f"Error getting stock news: {e}")
+        return json.dumps({
+            "error": "获取新闻失败",
+            "message": str(e)
+        }, ensure_ascii=False)
     
 @mcp.tool()
 async def get_ashare_financial(symbol: str
@@ -297,13 +283,14 @@ async def get_ashare_financial(symbol: str
         print(f"现金流量表项目数: {len(data['现金流量表'])}")
     """
     try:
-        data_fetcher = StockDataFetcher()
-        financial_data = data_fetcher.fetch_financial_data(symbol)
-        analysis_result = json.dumps(financial_data, ensure_ascii=False, indent=2)
-        return analysis_result
+        result = await KlineUtils.run_in_threadpool(KlineUtils.get_financial_run, symbol=symbol)
+        return result
     except Exception as e:
-        logger.error(f"Error analyzing stock pattern: {e}")
-        return f"Failed to analyze stock pattern: {str(e)}"
+        logger.error(f"Error getting financial data: {e}")
+        return json.dumps({
+            "error": "获取财务数据失败",
+            "message": str(e)
+        }, ensure_ascii=False)
 
 @mcp.tool()
 async def get_ashare_sector_info(symbol: str
@@ -347,10 +334,8 @@ async def get_ashare_sector_info(symbol: str
         print(f"概念板块: {', '.join(data['概念板块'])}")
     """
     try:
-        data_fetcher = StockDataFetcher()
-        sector_info = data_fetcher.fetch_sector_info(symbol)
-        analysis_result = json.dumps(sector_info, ensure_ascii=False, indent=2)
-        return analysis_result
+        result = await KlineUtils.run_in_threadpool(KlineUtils.get_sector_info_run, symbol=symbol)
+        return result
     except Exception as e:
         logger.error(f"Error fetching sector info: {e}")
         return json.dumps({
@@ -404,14 +389,128 @@ async def get_ashare_basic_info(symbol: str
         print(f"总市值: {data['总市值']}")
     """
     try:
-        data_fetcher = StockDataFetcher()
-        basic_info = data_fetcher.fetch_stock_basic_info(symbol)
-        analysis_result = json.dumps(basic_info, ensure_ascii=False, indent=2)
-        return analysis_result
+        result = await KlineUtils.run_in_threadpool(KlineUtils.get_basic_info_run, symbol=symbol)
+        return result
     except Exception as e:
         logger.error(f"Error fetching basic info: {e}")
         return json.dumps({
             "error": "获取基本信息失败",
+            "message": str(e)
+        }, ensure_ascii=False)
+
+@mcp.tool()
+async def get_ashare_shareholder_info(symbol: str
+                                   ) -> str:
+    """
+    获取A股个股股东信息
+    
+    功能特性:
+    - 获取股票基本信息（股票代码、股票名称）
+    - 获取主要股东列表（通常为前5个，包含股东名称、持股数量、持股比例等）
+    - 获取流通股东列表（通常为前5个，包含股东名称、持股数量、占流通股比例等）
+    - 获取股东总数、平均持股数等统计信息
+    - 返回结构化的股东信息，便于分析公司股权结构
+    
+    注意:
+        - 数据源来自新浪财经，通常提供前5个股东信息（不是前10个）
+        - 主要股东数据包含：编号、股东名称、持股数量、持股比例、股本性质、截至日期、公告日期等
+        - 流通股东数据包含：编号、股东名称、持股数量、占流通股比例、股本性质、截止日期、公告日期等
+    
+    参数说明:
+        symbol (str): A股股票代码，支持：
+            - 主板股票：000001、600036等
+            - 创业板股票：300001等
+            - 科创板股票：688001等
+    
+    返回值:
+        str: JSON格式的股东信息，包含：
+            - 股票代码：股票代码
+            - 股票名称：股票简称
+            - 前十大股东：主要股东列表（通常为前5个），每个股东包含：
+                - 编号、股东名称、持股数量、持股比例、股本性质、截至日期、公告日期等信息
+            - 前十大流通股东：流通股东列表（通常为前5个），每个股东包含：
+                - 编号、股东名称、持股数量、占流通股比例、股本性质、截止日期、公告日期等信息
+            - 股东总数：股东总数（如果有）
+            - 平均持股数：平均持股数（如果有）
+            - 备注：获取过程中的提示信息
+    
+    使用示例:
+        # 获取平安银行股东信息
+        shareholder_info = await get_ashare_shareholder_info("000001")
+        
+        # 获取招商银行股东信息
+        shareholder_info = await get_ashare_shareholder_info("600036")
+        
+        # 解析返回的JSON
+        import json
+        data = json.loads(shareholder_info)
+        print(f"股票名称: {data['股票名称']}")
+        print(f"主要股东数量: {len(data['前十大股东'])}")
+        print(f"流通股东数量: {len(data['前十大流通股东'])}")
+        print(f"股东总数: {data.get('股东总数', 'N/A')}")
+        if data['前十大股东']:
+            first_holder = data['前十大股东'][0]
+            print(f"第一大股东: {first_holder.get('股东名称', 'N/A')}")
+            print(f"  持股数量: {first_holder.get('持股数量', 'N/A')}")
+            print(f"  持股比例: {first_holder.get('持股比例', 'N/A')}%")
+    """
+    try:
+        result = await KlineUtils.run_in_threadpool(KlineUtils.get_shareholder_info_run, symbol=symbol)
+        return result
+    except Exception as e:
+        logger.error(f"Error fetching shareholder info: {e}")
+        return json.dumps({
+            "error": "获取股东信息失败",
+            "message": str(e)
+        }, ensure_ascii=False)
+
+@mcp.tool()
+async def get_all_ashare_stocks() -> str:
+    """
+    获取所有A股股票列表（包含股票代码和名称）
+    
+    功能特性:
+    - 获取所有沪深京A股股票列表（包括主板、创业板、科创板等）
+    - 返回股票代码和股票名称的完整列表
+    - 提供股票总数统计
+    - 返回结构化的股票列表数据，便于查询和筛选
+    
+    参数说明:
+        无参数
+    
+    返回值:
+        str: JSON格式的股票列表，包含：
+            - 总数：股票总数
+            - 股票列表：包含所有股票的列表，每个股票包含：
+                - 代码：6位股票代码（如：000001）
+                - 名称：股票名称（如：平安银行）
+            - 更新日期：数据获取日期
+            - 备注：获取过程中的提示信息
+    
+    使用示例:
+        # 获取所有A股股票列表
+        stock_list = await get_all_ashare_stocks()
+        
+        # 解析返回的JSON
+        import json
+        data = json.loads(stock_list)
+        print(f"股票总数: {data['总数']}")
+        print(f"前10只股票:")
+        for stock in data['股票列表'][:10]:
+            print(f"  {stock['代码']}: {stock['名称']}")
+        
+        # 按名称搜索股票
+        keyword = "银行"
+        filtered = [s for s in data['股票列表'] if keyword in s['名称']]
+        print(f"包含'{keyword}'的股票数量: {len(filtered)}")
+    """
+    try:
+        result = await KlineUtils.run_in_threadpool(KlineUtils.get_all_stocks_run)
+        return result
+    except Exception as e:
+        logger.error(f"Error fetching all stock list: {e}")
+        return json.dumps({
+            "error": "获取股票列表失败",
             "message": str(e)
         }, ensure_ascii=False)
 

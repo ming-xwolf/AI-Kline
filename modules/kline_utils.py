@@ -3,6 +3,7 @@ K线工具类，提供各种辅助函数和工具方法
 """
 import logging
 import asyncio
+import json
 from datetime import datetime, timedelta
 import akshare as ak
 import pandas as pd
@@ -333,4 +334,124 @@ class KlineUtils:
             
         except Exception as e:
             return f"生成缠论图表过程中出错: {str(e)}"
+    
+    @staticmethod
+    def get_quote_run(symbol: str, frequency: str = 'daily') -> str:
+        """
+        获取股票行情数据的核心函数
+        
+        Args:
+            symbol: 股票代码
+            frequency: 数据频率
+            
+        Returns:
+            str: JSON格式的股票数据
+        """
+        # 根据频率的默认周期计算开始日期和结束日期
+        start_date, end_date = KlineUtils.calculate_start_date_by_frequency(frequency)
+        
+        data_fetcher = StockDataFetcher()
+        # 使用 date_as_string=True 让数据获取时就返回字符串格式的日期
+        stock_data = data_fetcher.fetch_stock_data_by_date_range(symbol, start_date, end_date, frequency, date_as_string=True)
+        
+        if stock_data.empty:
+            return json.dumps({
+                "error": "数据获取失败",
+                "message": "无法获取股票数据，请检查股票代码是否正确"
+            }, ensure_ascii=False)
+        
+        # 将 DataFrame 转换为字典，然后转换为 JSON 字符串
+        # 日期已经是字符串格式，无需额外处理
+        analysis_result = stock_data.to_dict()
+        
+        return json.dumps(analysis_result, ensure_ascii=False, default=str)
+    
+    @staticmethod
+    def get_news_run(symbol: str) -> str:
+        """
+        获取股票新闻数据的核心函数
+        
+        Args:
+            symbol: 股票代码
+            
+        Returns:
+            str: JSON格式的新闻数据
+        """
+        financial_data = {}
+        data_fetcher = StockDataFetcher()
+        news_data = data_fetcher.fetch_news_data(symbol)
+        financial_data['news'] = news_data
+        return json.dumps(financial_data, ensure_ascii=False, indent=2)
+    
+    @staticmethod
+    def get_financial_run(symbol: str) -> str:
+        """
+        获取股票财务数据的核心函数
+        
+        Args:
+            symbol: 股票代码
+            
+        Returns:
+            str: JSON格式的财务数据
+        """
+        data_fetcher = StockDataFetcher()
+        financial_data = data_fetcher.fetch_financial_data(symbol)
+        return json.dumps(financial_data, ensure_ascii=False, indent=2, default=str)
+    
+    @staticmethod
+    def get_sector_info_run(symbol: str) -> str:
+        """
+        获取股票板块信息的核心函数
+        
+        Args:
+            symbol: 股票代码
+            
+        Returns:
+            str: JSON格式的板块信息
+        """
+        data_fetcher = StockDataFetcher()
+        sector_info = data_fetcher.fetch_sector_info(symbol)
+        return json.dumps(sector_info, ensure_ascii=False, indent=2)
+    
+    @staticmethod
+    def get_basic_info_run(symbol: str) -> str:
+        """
+        获取股票基本信息的核心函数
+        
+        Args:
+            symbol: 股票代码
+            
+        Returns:
+            str: JSON格式的基本信息
+        """
+        data_fetcher = StockDataFetcher()
+        basic_info = data_fetcher.fetch_stock_basic_info(symbol)
+        return json.dumps(basic_info, ensure_ascii=False, indent=2)
+    
+    @staticmethod
+    def get_shareholder_info_run(symbol: str) -> str:
+        """
+        获取股东信息的核心函数
+        
+        Args:
+            symbol: 股票代码
+            
+        Returns:
+            str: JSON格式的股东信息
+        """
+        data_fetcher = StockDataFetcher()
+        shareholder_info = data_fetcher.fetch_shareholder_info(symbol)
+        return json.dumps(shareholder_info, ensure_ascii=False, indent=2)
+    
+    @staticmethod
+    def get_all_stocks_run() -> str:
+        """
+        获取所有股票列表的核心函数
+        
+        Returns:
+            str: JSON格式的股票列表
+        """
+        data_fetcher = StockDataFetcher()
+        stock_list_info = data_fetcher.fetch_all_stock_list()
+        return json.dumps(stock_list_info, ensure_ascii=False, indent=2)
 
